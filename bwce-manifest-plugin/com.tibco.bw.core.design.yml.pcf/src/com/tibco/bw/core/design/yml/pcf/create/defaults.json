@@ -1,0 +1,6 @@
+{
+	"applications": [{
+		"memory": "512M",
+		"timeout": "60"
+	}]
+}

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright© 2010 - 2013 TIBCO Software Inc. 
+  All rights reserved. 
+  
+  This software is confidential and proprietary information of TIBCO Software Inc.
+-->
+<?eclipse version="3.0"?>
+<plugin>
+  
+   <extension point="org.eclipse.ui.editors">
+      <?gmfgen generated="true"?>
+      <editor
+            class="com.tibco.bw.core.design.yml.pcf.editor.SimplifiedEditor"
+            contributorClass="com.tibco.bw.core.design.yml.editor.ManifestContribution"
+            default="true"
+            extensions="yml"
+            icon="platform:/plugin/com.tibco.bw.core.design.process.editor/icons/obj16/Properties.png"
+            id="com.tibco.bw.core.design.process.editor.ManifestYMLEditor"
+            name="%editor.name">
+      </editor>
+   </extension>
+   <extension
+         point="com.tibco.bw.core.design.yml.platformExtension">
+      <details
+            class="com.tibco.bw.core.design.yml.pcf.create.ManifestYMLPCFExtension"
+            id="pcf">
+      </details>
+   </extension>
+
+   
+
+
+
+
+
+
+   
+
+   
+
+   
+
+
+
+
+
+
+
+        
+
+        
+
+        
+
+   
+   
+        
+   
+
+
+
+
+
+
+
+
+     <!-- add to pop menu --> 
+
+        
+         
+</plugin>
