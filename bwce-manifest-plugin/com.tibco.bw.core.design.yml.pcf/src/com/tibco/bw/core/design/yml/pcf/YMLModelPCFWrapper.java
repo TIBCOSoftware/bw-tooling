@@ -72,16 +72,20 @@ public class YMLModelPCFWrapper {
 	
 	public void cleanEmptyServicesValues(){
 		Set<String> listSet = new HashSet<>();
-		List<String> servicesList = getServicesList();
-		listSet.addAll(servicesList);
-		servicesList.clear();
-		servicesList.addAll(listSet);
-		servicesList.removeAll(Arrays.asList("")); //$NON-NLS-1$
-		putServicesList(servicesList);
-		if(servicesList.isEmpty()){
-			model.getOthers().remove(YMLModelPCFConstants.KEY_SERVICES);
+		try {
+			List<String> servicesList = getServicesList();
+			listSet.addAll(servicesList);
+			servicesList.clear();
+			servicesList.addAll(listSet);
+			servicesList.removeAll(Arrays.asList("")); //$NON-NLS-1$
+			putServicesList(servicesList);
+			if(servicesList.isEmpty()){
+				model.getOthers().remove(YMLModelPCFConstants.KEY_SERVICES);
+			}
+		} catch (IllegalFormatException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		
 	}
 	
 	public Map<String, Object> getApplicationMap() throws IllegalFormatException{
@@ -131,19 +135,23 @@ public class YMLModelPCFWrapper {
 	}
 	
 	public void clearApplications() {
-		Map<String, Object> applicationMap = getApplicationMap();
-		if(applicationMap != null && (applicationMap instanceof Map<?, ?>)){
-		
-		   Iterator<Entry<String, Object>> iter= applicationMap.entrySet().iterator();
-		   while(iter.hasNext()){
-			   boolean equals = iter.next().getValue().equals(""); //$NON-NLS-1$
-			   if(equals){
-				   iter.remove();
+		try {
+			Map<String, Object> applicationMap = getApplicationMap();
+			if(applicationMap != null && (applicationMap instanceof Map<?, ?>)){
+			
+			   Iterator<Entry<String, Object>> iter= applicationMap.entrySet().iterator();
+			   while(iter.hasNext()){
+				   boolean equals = iter.next().getValue().equals(""); //$NON-NLS-1$
+				   if(equals){
+					   iter.remove();
+				   }
 			   }
-		   }
-		   if(applicationMap.isEmpty()){
-			   model.getOthers().remove(YMLModelPCFConstants.KEY_APPLICATIONS);
-		   }
+			   if(applicationMap.isEmpty()){
+				   model.getOthers().remove(YMLModelPCFConstants.KEY_APPLICATIONS);
+			   }
+			}
+		} catch (IllegalFormatException e) {
+			e.printStackTrace();
 		}
 	}
 

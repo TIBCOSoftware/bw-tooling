@@ -46,6 +46,7 @@ public class YMLEditingModel extends AbstractEditingModel {
 			e.printStackTrace();
 		} catch (Exception e) {
 			if (e instanceof ScannerException) {
+				ymlModel = null;
 				createErrorMarker((ScannerException) e);
 			}
 		}

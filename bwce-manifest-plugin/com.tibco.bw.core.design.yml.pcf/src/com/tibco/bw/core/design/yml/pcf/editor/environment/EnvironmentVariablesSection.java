@@ -79,6 +79,7 @@ public class EnvironmentVariablesSection extends PDESection {
 		section.setClient(sectionContainer);
 		getYMLModel().addModelChangedListener(this);
 		setEnabled(!editingModel.doesYamlFileHaveErrors());
+		setTableViewerInput();
 	}
 	
 	private void initializeModels() {
@@ -96,12 +97,10 @@ public class EnvironmentVariablesSection extends PDESection {
 	 * @return
 	 */
 	protected void createEnvTableViewer(Composite parent) {
-		Map<String,Object> env = wrapper.getEnvironmentVariableMap();
 		
 		tableViewer = new TableViewer(parent, SWT.MULTI | SWT.H_SCROLL | SWT.V_SCROLL | SWT.BORDER | SWT.FULL_SELECTION);
 		createColumns(tableViewer);
 		tableViewer.setContentProvider(new TableContentProvider());
-		setTableViewerInput();
 
 		//define layout for the table
         GridData gridData = getGridDataForTable();
@@ -127,10 +126,15 @@ public class EnvironmentVariablesSection extends PDESection {
 		addBtn.addSelectionListener(new SelectionAdapter() {
 			@Override
 			public void widgetSelected(SelectionEvent e) {
-				
-				wrapper.getEnvironmentVariableMap().put("", ""); //$NON-NLS-1$ //$NON-NLS-2$
-				fireModelDirty();
-				tableViewer.getTable().select(tableViewer.getTable().getItemCount());
+				try {
+					wrapper.getEnvironmentVariableMap().put("", ""); //$NON-NLS-1$ //$NON-NLS-2$
+					fireModelDirty();
+					tableViewer.getTable().select(tableViewer.getTable().getItemCount());
+				} catch (IllegalFormatException ex) {
+					Logger.getLogger(getClass().getName()).severe(
+							ex.getMessage());
+					setEnabled(false);
+				}
 			}
 		});
 		
@@ -152,7 +156,13 @@ public class EnvironmentVariablesSection extends PDESection {
 					TableItem[] selections = tableViewer.getTable().getSelection();
 					for (TableItem tableItem : selections) {
 						Entry<String,Object> data = (Entry<String,Object>) tableItem.getData();
-						wrapper.getEnvironmentVariableMap().remove(data.getKey());
+						try {
+							wrapper.getEnvironmentVariableMap().remove(data.getKey());
+						} catch (IllegalFormatException ex) {
+							Logger.getLogger(getClass().getName()).severe(
+									ex.getMessage());
+							setEnabled(false);
+						}
 					}
 					
 					fireModelDirty();

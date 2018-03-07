@@ -110,9 +110,15 @@ public class ApplicationSection extends PDESection  {
 		nameEntry = new FormEntry(sectionContainer2, toolkit, Messages.ApplicationConfigurationSection_name, null, false);
 		nameEntry.setFormEntryListener(new FormEntryAdapter(this, actionBars) {
 			public void textValueChanged(FormEntry entry) {
+				try {
 				wrapper.getApplicationMap().put(YMLModelPCFConstants.KEY_NAME, entry.getValue());
-					ymlEditingModel.setDirty(true);
-		}
+				ymlEditingModel.setDirty(true);
+				} catch (IllegalFormatException ex) {
+					Logger.getLogger(getClass().getName()).severe(
+							ex.getMessage());
+					setEnabled(false);
+				}
+			}
 		});
 	}
 	
@@ -122,8 +128,14 @@ public class ApplicationSection extends PDESection  {
 		memoryEntry = new FormEntry(sectionContainer2, toolkit, Messages.ApplicationConfigurationSection_memory, null, false);
 		memoryEntry.setFormEntryListener(new FormEntryAdapter(this, actionBars) {
 			public void textValueChanged(FormEntry entry) {
-				wrapper.getApplicationMap().put(YMLModelPCFConstants.KEY_MEMORY,entry.getValue());
-					ymlEditingModel.setDirty(true);
+				try {
+					wrapper.getApplicationMap().put(YMLModelPCFConstants.KEY_MEMORY,entry.getValue());
+						ymlEditingModel.setDirty(true);
+				} catch (IllegalFormatException ex) {
+					Logger.getLogger(getClass().getName()).severe(
+							ex.getMessage());
+					setEnabled(false);
+				}
 			}
 		});
 	}
@@ -134,8 +146,14 @@ public class ApplicationSection extends PDESection  {
 		timeoutEntry = new FormEntry(sectionContainer2, toolkit, Messages.ApplicationConfigurationSection_timeout, null, false);
 		timeoutEntry.setFormEntryListener(new FormEntryAdapter(this, actionBars) {
 			public void textValueChanged(FormEntry entry) {
+				try {
 					wrapper.getApplicationMap().put(YMLModelPCFConstants.KEY_TIMEOUT,entry.getValue());
 					ymlEditingModel.setDirty(true);
+				} catch (IllegalFormatException ex) {
+					Logger.getLogger(getClass().getName()).severe(
+							ex.getMessage());
+					setEnabled(false);
+				}
 			}
 		});
 		timeoutEntry.getText().setToolTipText(Messages.ApplicationConfigurationSection_timeoutTooltip);
@@ -156,8 +174,14 @@ public class ApplicationSection extends PDESection  {
 		
 		buildPackEntry.setFormEntryListener(new FormEntryAdapter(this, actionBars) {
 			public void textValueChanged(FormEntry entry) {
+				try {
 					wrapper.getApplicationMap().put(YMLModelPCFConstants.KEY_BUILDPACK, entry.getValue());
 					ymlEditingModel.setDirty(true);
+				} catch (IllegalFormatException ex) {
+					Logger.getLogger(getClass().getName()).severe(
+							ex.getMessage());
+					setEnabled(false);
+				}
 			}
 		});
 		

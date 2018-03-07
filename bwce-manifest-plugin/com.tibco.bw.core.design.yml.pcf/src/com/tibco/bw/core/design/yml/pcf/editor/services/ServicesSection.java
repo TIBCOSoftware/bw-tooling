@@ -294,10 +294,10 @@ public class ServicesSection extends PDESection {
 
 	@Override
 	public void modelChanged(IModelChangedEvent e) {
+		setEnabled(!editingModel.doesYamlFileHaveErrors());
 		wrapper.setModel(editingModel.getModel());
 		setTableViewerInput();
 		tableViewer.refresh();
-		setEnabled(!editingModel.doesYamlFileHaveErrors());
 		super.modelChanged(e);
 	}
 
