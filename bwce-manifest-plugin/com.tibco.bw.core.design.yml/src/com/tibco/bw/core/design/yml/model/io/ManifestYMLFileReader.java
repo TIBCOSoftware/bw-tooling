@@ -1,3 +1,5 @@
+/*Copyright © 2018. TIBCO Software Inc. All Rights Reserved.*/
+
 package com.tibco.bw.core.design.yml.model.io;
 
 import java.io.File;

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright © 2018. TIBCO Software Inc. All Rights Reserved.-->
 <feature
       id="com.tibco.bw.core.design.yml.feature"
       label="Manifest YML Editor Feature for Tibco Businessworks"

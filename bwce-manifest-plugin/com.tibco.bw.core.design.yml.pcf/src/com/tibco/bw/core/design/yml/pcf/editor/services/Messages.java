@@ -1,3 +1,5 @@
+/*Copyright © 2018. TIBCO Software Inc. All Rights Reserved.*/
+
 package com.tibco.bw.core.design.yml.pcf.editor.services;
 
 import org.eclipse.osgi.util.NLS;
