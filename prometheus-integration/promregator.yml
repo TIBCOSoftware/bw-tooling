@@ -1,0 +1,14 @@
+promregator:
+  authenticator:
+    type: none
+
+  targets:
+    - orgName: <org-name>
+      spaceName: <space-name>
+      applicationName: <app-name>
+      protocol: [http/https]
+      
+cf:
+  api_host: <host-name-without-http>
+  username: <username>
+  skipSslValidation: [true/false]
