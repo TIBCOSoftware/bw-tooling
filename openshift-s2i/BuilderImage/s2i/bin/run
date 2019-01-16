@@ -1,0 +1,174 @@
+#!/bin/bash
+#
+# S2I run script for the 'bwce' image.
+# For more information see the documentation:
+#	https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
+
+print_Debug()
+{
+		if [[ ${BW_LOGLEVEL} && "${BW_LOGLEVEL,,}"="debug" ]]; then
+ 			echo $1 
+ 		fi
+}
+
+checkEnvSubstituteConfig()
+{
+	bwappnodeTRA=$BWCE_HOME/tibco.home/bw*/*/bin/bwappnode.tra
+	bwappnodeFile=$BWCE_HOME/tibco.home/bw*/*/bin/bwappnode
+	#appnodeConfigFile=$BWCE_HOME/tibco.home/bw*/*/config/appnode_config.ini
+	manifest=/tmp/META-INF/MANIFEST.MF
+	bwAppNameHeader="Bundle-SymbolicName"
+	bwBundleAppName=`while read line; do printf "%q\n" "$line"; done<${manifest} | awk '/.*:/{printf "%s%s", (NR==1)?"":RS,$0;next}{printf "%s", FS $0}END{print ""}' | grep -o $bwAppNameHeader.* | cut -d ":" -f2 | tr -d '[[:space:]]' | sed "s/\\\\\r'//g" | sed "s/$'//g"`
+	export BWCE_APP_NAME=$bwBundleAppName 	
+	if [ -e ${bwappnodeTRA} ]; then
+		sed -i 's?-Djava.class.path=?-Djava.class.path=$ADDONS_HOME/lib:?' $bwappnodeTRA
+		print_Debug "Appended ADDONS_HOME/lib in bwappnode.tra file"
+	fi
+	if [ -e ${bwappnodeFile} ]; then
+		sed -i 's?-Djava.class.path=?-Djava.class.path=$ADDONS_HOME/lib:?' $bwappnodeFile
+		print_Debug "Appended ADDONS_HOME/lib in bwappnode file"
+	fi
+	if [[ ${BW_JAVA_OPTS} ]]; then
+		if [ -e ${bwappnodeTRA} ]; then
+			sed -i.bak "/java.extended.properties/s/$/ ${BW_JAVA_OPTS}/" $bwappnodeTRA
+			print_Debug "Appended $BW_JAVA_OPTS to java.extend.properties"
+		fi
+	fi
+	if [[ ${BW_ENGINE_THREADCOUNT} ]]; then
+		if [ -e ${appnodeConfigFile} ]; then
+			printf '%s\n' "bw.engine.threadCount=$BW_ENGINE_THREADCOUNT" >> $appnodeConfigFile
+			print_Debug "set BW_ENGINE_THREADCOUNT to $BW_ENGINE_THREADCOUNT"
+		fi
+	fi
+	if [[ ${BW_ENGINE_STEPCOUNT} ]]; then
+		if [ -e ${appnodeConfigFile} ]; then
+			printf '%s\n' "bw.engine.stepCount=$BW_ENGINE_STEPCOUNT" >> $appnodeConfigFile
+			print_Debug "set BW_ENGINE_STEPCOUNT to $BW_ENGINE_STEPCOUNT"
+		fi
+	fi
+	if [[ ${BW_APPLICATION_JOB_FLOWLIMIT} ]]; then
+		if [ -e ${appnodeConfigFile} ]; then
+			printf '%s\n' "bw.application.job.flowlimit.$bwBundleAppName=$BW_APPLICATION_JOB_FLOWLIMIT" >> $appnodeConfigFile
+			print_Debug "set BW_APPLICATION_JOB_FLOWLIMIT to $BW_APPLICATION_JOB_FLOWLIMIT"
+		fi
+	fi
+	if [[ ${BW_APP_MONITORING_CONFIG} ]]; then
+		if [ -e ${appnodeConfigFile} ]; then
+			sed -i 's/bw.frwk.event.subscriber.metrics.enabled=false/bw.frwk.event.subscriber.metrics.enabled=true/g' $appnodeConfigFile
+			print_Debug "set bw.frwk.event.subscriber.metrics.enabled to true"
+		fi
+	fi
+
+	if [[  $BW_LOGLEVEL = "DEBUG" ]]; then
+		if [[ ${BW_APPLICATION_JOB_FLOWLIMIT} ]] || [[ ${BW_ENGINE_STEPCOUNT} ]] || [[ ${BW_ENGINE_THREADCOUNT} ]] || [[ ${BW_APP_MONITORING_CONFIG} ]]; then
+		echo "---------------------------------------"
+		cat $appnodeConfigFile
+		echo "---------------------------------------"
+		fi
+	fi
+}
+
+checkProfile()
+{
+	BUILD_DIR=/tmp
+	defaultProfile=default.substvar
+	manifest=$BUILD_DIR/META-INF/MANIFEST.MF
+	bwAppConfig="TIBCO-BW-ConfigProfile"
+	bwAppNameHeader="Bundle-SymbolicName"
+	bwEdition='bwcf'
+	#bwceTarget='TIBCO-BWCE-Edition-Target:'
+	if [ -f ${manifest} ]; then
+		bwAppProfileStr=`grep -o $bwAppConfig.*.substvar ${manifest}`
+		bwBundleAppName=`while read line; do printf "%q\n" "$line"; done<${manifest} | awk '/.*:/{printf "%s%s", (NR==1)?"":RS,$0;next}{printf "%s", FS $0}END{print ""}' | grep -o $bwAppNameHeader.* | cut -d ":" -f2 | tr -d '[[:space:]]' | sed "s/\\\\\r'//g" | sed "s/$'//g"`
+		if [ "$DISABLE_BWCE_EAR_VALIDATION" != true ]; then
+			bwEditionHeaderStr=`grep -E $bwEdition ${manifest}`
+			res=$?
+			if [ ${res} -eq 0 ]; then
+				print_Debug " "
+			else
+				echo "ERROR: Application [$bwBundleAppName] is not supported in TIBCO BusinessWorks Container Edition. Convert this application to TIBCO BusinessWorks Container Edition using TIBCO Business Studio Container Edition. Refer Conversion Guide for more details."
+				exit 1
+			fi
+		else
+			print_Debug "BWCE EAR Validation disabled."
+		fi
+
+		for name in $(find $BUILD_DIR -path $BUILD_DIR/tibco.home -prune -o -type f -iname "*.jar");
+		do
+			if [[ $name == *.jar ]]; then
+			    mkdir -p $BUILD_DIR/temp
+				unzip -o -q $name -d $BUILD_DIR/temp
+				MANIFESTMF=$BUILD_DIR/temp/META-INF/MANIFEST.MF
+			   
+				bwcePaletteStr=`tr -d '\n\r ' < ${MANIFESTMF} | grep -E 'bw.rv'`
+				palette_res=$?
+								
+				bwcePolicyStr=`tr -d '\n\r ' < ${MANIFESTMF} | grep -E 'bw.authxml|bw.cred|bw.ldap|bw.wss|bw.dbauth|bw.kerberos|bw.realmdb|bw.ldaprealm|bw.userid'`
+			    policy_res=$?
+				rm -rf $BUILD_DIR/temp
+				
+				if [ ${palette_res} -eq 0 ]; then
+	 				echo "ERROR: Application [$bwBundleAppName] is using unsupported RV palette and can not be deployed in Docker. Rebuild your application for Docker using TIBCO Business Studio Container Edition."
+	 				exit 1
+				fi
+
+				if [ ${policy_res} -eq 0 ]; then
+					POLICY_ENABLED="true"
+					break
+				fi
+			fi
+		done
+	fi
+	
+	arr=$(echo $bwAppProfileStr | tr "/" "\n")
+	for x in $arr
+	do
+    	case "$x" in 
+		*substvar)
+		defaultProfile=$x;;esac	
+	done
+	
+	if [ -z ${BW_PROFILE:=${defaultProfile}} ]; then
+		echo "BW_PROFILE is unset. Set it to $defaultProfile";
+	else 
+		case $BW_PROFILE in
+ 		*.substvar ) ;;
+		* ) BW_PROFILE="${BW_PROFILE}.substvar";;esac
+		echo "BW_PROFILE is set to '$BW_PROFILE'";
+	fi
+	
+}
+
+#Set ENV Variables
+echo "Starting run.sh"
+export BWCE_HOME=/tmp
+export APPDIR=${BWCE_HOME}
+export MALLOC_ARENA_MAX=2
+export MALLOC_MMAP_THRESHOLD_=1024
+export MALLOC_TRIM_THRESHOLD_=1024
+export MALLOC_MMAP_MAX_=65536
+export JAVA_HOME=$BWCE_HOME/tibco.home/tibcojre64/1.8.0
+
+STATUS=$?
+if [ $STATUS == "1" ]; then
+	    echo "ERROR: Failed to setup BWCE runtime. See logs for more details."
+	        exit 1
+fi
+
+checkEnvSubstituteConfig
+checkProfile
+
+if [ -f /*.substvar ]; then
+	cp -f /tmp/src/*.substvar $BWCE_HOME/tmp/pcf.substvar # User provided profile
+else
+	cp -f /tmp/META-INF/$BW_PROFILE $BWCE_HOME/tmp/pcf.substvar
+fi
+
+$JAVA_HOME/bin/java -cp `echo $BWCE_HOME/tibco.home/bw*/*/system/shared/com.tibco.bwce.profile.resolver_*.jar`:`echo $BWCE_HOME/tibco.home/bw*/*/system/shared/com.tibco.tpcl.com.fasterxml.jackson_*`/*:`echo $BWCE_HOME/tibco.home/bw*/*/system/shared/com.tibco.bw.tpcl.org.codehaus.jettison_*`/*:$BWCE_HOME:$JAVA_HOME/lib -DBWCE_APP_NAME=$bwBundleAppName com.tibco.bwce.profile.resolver.Resolver
+
+STATUS=$?
+if [ $STATUS == "1" ]; then
+    exit 1 # terminate and indicate error
+fi
+
+exec bash $BWCE_HOME/tibco.home/bw*/*/bin/startBWAppNode.sh  # run the application
