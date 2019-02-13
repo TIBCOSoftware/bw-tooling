@@ -1,5 +1,5 @@
 #!/bin/bash 
-
+#Copyright © 2019. TIBCO Software Inc.
 print_Debug()
 {
 		if [[ ${BW_LOGLEVEL} && "${BW_LOGLEVEL,,}"="debug" ]]; then

@@ -1,4 +1,5 @@
-#!/bin/bash 
+#!/bin/bash
+#Copyright © 2018. TIBCO Software Inc. 
 cat <<EOF
 This is a sample S2I image:
 To use it, install S2I: https://github.com/openshift/source-to-image
