@@ -1,3 +1,5 @@
+/*Copyright © 2018. TIBCO Software Inc. All Rights Reserved.*/
+
 package com.tibco.bw.prometheus.monitor.stats;
 
 import static com.tibco.bw.prometheus.monitor.util.StatCollectionConstant.END_TIME_PROPERTY;

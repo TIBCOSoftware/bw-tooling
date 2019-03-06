@@ -1,3 +1,5 @@
+# /*Copyright © 2018. TIBCO Software Inc. All Rights Reserved.*/
+
 promregator:
   authenticator:
     type: none
@@ -12,3 +14,4 @@ cf:
   api_host: <host-name-without-http>
   username: <username>
   skipSslValidation: [true/false]
+
