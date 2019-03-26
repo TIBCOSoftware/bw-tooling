@@ -1,0 +1,15 @@
+---
+applications:
+- name: GreetingsApp
+  memory: 1024M
+  path: httpgreetings.application.ear
+  timeout: 60
+  buildpack: bw-buildpack-qaautomation
+  health-check-type: none
+  
+  env:
+   BW_LOGLEVEL: ERROR
+   BW_APP_MONITORING_CONFIG: "{\"url\":\"http://comtibcobwcemonitoring123.apps.bw.tibcopcf.net\"}"
+   BW_PROFILE: default
+   BW_PROMETHEUS_ENABLE: true
+      
