@@ -17,7 +17,7 @@ To enable Prometheus monitoring for applications running in PCF follow the below
 * Add JAR of this plugin in addons/jar folder and build the buildpack.
 * Push your application to the cloud using newly created buildpack. Once application gets started you would be able to see the Prometheus metrics at applications-routable-url/merics endpoint.
 * Add promregator.yml file and run the Promregator server using below command:
-docker run -d --name promregator -p 127.0.0.1:56710:8080 -v path-to-file/promregator.yml:/etc/promregator/promregator.yml -e CF_PASSWORD=<cloud-foundary-password> promregator/promregator:0.4.1
+docker run -d --name promregator -p 127.0.0.1:56710:8080 -v path-to-file/promregator.yml:/etc/promregator/promregator.yml -e CF_PASSWORD=cloud-foundary-password promregator/promregator:0.4.1
 * Add prometheus.yml file and run the Prometheus server using below command:
 docker run --name prometheus -v path-to-file/prometheus.yml:/etc/prometheus/prometheus.yml -p 127.0.0.1:9090:9090 --link promregator prom/prometheus:latest
 
