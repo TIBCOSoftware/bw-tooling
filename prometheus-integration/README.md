@@ -9,6 +9,7 @@ To enable Prometheus monitoring for applications running in Docker follow the be
 * Set BW_PROMETHEUS_ENABLE environment variable to TRUE while running the Docker image of the application.
 * Run your application using below command: <br/>
 docker run -d -p 9095:9095 -p exposed-port-by-application:8080 -e BW_PROMETHEUS_ENABLE=TRUE app-image-name <br/>
+To enable logging pass environment variable BW_LOGLEVEL=INFO|DEBUG <br/>
 Now, hit the application endpoint and check the metrics here: http://your-machine-ip:9095/metrics
 * Add prometheus.yml file and run the Prometheus server to scrape metrics generated in last step using the below commands: <br/>
 cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
