@@ -13,7 +13,7 @@ To enable logging pass environment variable BW_LOGLEVEL=INFO|DEBUG <br/>
 Now, hit the application endpoint and check the metrics here: http://your-machine-ip:9095/metrics
 * Add prometheus.yml file and run the Prometheus server to scrape metrics generated in last step using the below commands: <br/>
 cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
-docker run -p 9090:9090 -v ~/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus --config.file=/etc/prometheus/prometheus.yml
+docker run -p -d 9090:9090 -v ~/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus --config.file=/etc/prometheus/prometheus.yml
 
 To enable Prometheus monitoring for applications running in PCF follow the below steps:
 * Set BW_PROMETHEUS_ENABLE environment variable to TRUE in the manifest.yml file of the application.
