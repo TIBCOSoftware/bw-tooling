@@ -1,0 +1,29 @@
+Sample PromQL to check the application's metrics:
+
+1) Process Instrumentation data metrics have been created. Below are the PromQL to show the metrics
+Created, completed, faulted, suspended process details
+all_process_events_count
+Execution time: Avg, Min, Max, Total
+max(process_duration_count) by (ProcessInstanceState)
+This will be calculated for Completed Process states only.
+Elapsed time: Avg, Min, Max, Total
+sum(activity_evaltime_count) by (ProcessInstanceId)
+
+2) Process Monitoring data metrics have been created. Below are the PromQL to show the metrics
+Monitor the status of the process instances and subprocesses that were successfully executed, canceled or faulted.
+sum (process_state_count) by (ApplicationName, ProcessInstanceState)
+Show processes and subprocesses of the selected application
+sum (process_stats_total) by (ApplicationName, ComponentProcessName, ParentProcessName)
+Show duration time & end time for all instances in the selected process
+process_duration_count
+We can get the sum, min, max for duration time.
+
+3) Activity Instrumentation data metrics have been created. Below are the PromQL to show the metrics
+Faulted, executed, recent status details per activity
+sum (activity_state_count) by (ApplicationName, ActivityState)
+all_activity_events_count - This will give a list of all activities in the application along with the status.
+Elapsed time: Min, Max, Total
+min(activity_duration_count) by (ApplicationName, ActivityState)
+simiarly min, max, sum
+Execution time: Min, Max, Total
+min(activity_evaltime_count) by (ApplicationName,ActivityState)
