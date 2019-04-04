@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+   <feature url="features/com.tibco.bw.core.design.group.variables.feature_1.0.0.201904041021.jar" id="com.tibco.bw.core.design.group.variables.feature" version="1.0.0.201904041021">
+      <category name="TIBCO BW Reset Variables Feature"/>
+   </feature>
+   <category-def name="TIBCO BW Reset Variables Feature" label="TIBCO BW Reset Variables Feature"/>
+</site>
