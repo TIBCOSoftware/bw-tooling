@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?eclipse version="3.4"?>
+<plugin>
+
+	<extension
+    	point="org.eclipse.ui.commands">
+      	<command
+        	defaultHandler="com.tibco.bw.core.design.group.variables.reset.ResetVariablesHandler"
+            id="com.tibco.bw.core.design.group.variables.reset.ResetVariablesCommand"
+            name="%command.name">
+      	</command>
+   	</extension>   
+
+	<extension
+    	point="org.eclipse.ui.menus">
+      	<menuContribution
+        	allPopups="false"
+            locationURI="popup:org.eclipse.ui.navigator.ProjectExplorer#PopupMenu?before=additions">
+         	<command
+           		commandId="com.tibco.bw.core.design.group.variables.reset.ResetVariablesCommand"
+            	label="%command.label"
+               	style="push">
+               	<visibleWhen checkEnabled="false">
+               		<iterate>
+                  		<or>
+                     		<test
+                           		property="com.tibco.bw.core.design.group.variables.resetVariablesPropertyTester">
+                     		</test>
+                     	</or>
+                    </iterate>
+            	</visibleWhen>
+         	</command>
+      	</menuContribution>
+	</extension>
+	
+	<extension
+        point="org.eclipse.core.expressions.propertyTesters">
+		<propertyTester
+            class="com.tibco.bw.core.design.group.variables.reset.ResetVariablesPropertyTester"
+            id="com.tibco.bw.core.design.group.variables.resetVariablesPropertyTester"
+            namespace="com.tibco.bw.core.design.group.variables"
+            properties="resetVariablesPropertyTester"
+            type="java.lang.Object">
+      	</propertyTester>
+    </extension>
+
+</plugin>
