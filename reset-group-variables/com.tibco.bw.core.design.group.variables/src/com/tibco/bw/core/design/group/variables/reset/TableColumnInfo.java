@@ -1,3 +1,4 @@
+/*Copyright © 2019. TIBCO Software Inc. All Rights Reserved.*/
 package com.tibco.bw.core.design.group.variables.reset;
 
 public class TableColumnInfo {
