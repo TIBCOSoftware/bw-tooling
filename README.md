@@ -1,4 +1,4 @@
-# bwce-tooling
+# bw-tooling
 
 This repository provides a collection of tools designed to simplify deployment and management of TIBCO BusinessWorks applications on a range of platforms including Docker, Kubernetes, OpenShift and Cloud Foundry
 
