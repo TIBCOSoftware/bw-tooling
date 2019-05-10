@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- /*Copyright © 2018. TIBCO Software Inc. All Rights Reserved.*/ -->
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xmlns:web="http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
+  
+  <listener>
+    <listener-class>com.tibco.bw.turbine.server.TurbineInitializer</listener-class>
+  </listener>
+  
+  <servlet>
+    <description></description>
+    <display-name>TurbineStreamServlet</display-name>
+    <servlet-name>TurbineStreamServlet</servlet-name>
+    <servlet-class>com.netflix.turbine.streaming.servlet.TurbineStreamServlet</servlet-class>
+  </servlet>
+
+  <servlet>
+    <description>Discovery Feedback Servlet</description>
+    <display-name>DiscoveryFeedbackServlet</display-name>
+    <servlet-name>DiscoveryFeedbackServlet</servlet-name>
+    <servlet-class>com.tibco.bw.turbine.server.DiscoveryFeedbackServlet</servlet-class>
+  </servlet>
+  
+  <servlet-mapping>
+    <servlet-name>TurbineStreamServlet</servlet-name>
+    <url-pattern>/turbine.stream</url-pattern>
+  </servlet-mapping>
+
+  <servlet-mapping>
+    <servlet-name>DiscoveryFeedbackServlet</servlet-name>
+    <url-pattern>/discovery</url-pattern>
+  </servlet-mapping>
+  
+</web-app>
