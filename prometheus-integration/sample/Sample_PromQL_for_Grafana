@@ -1,0 +1,17 @@
+Below are the sample queries used to show on Grafana Dashboard:
+
+1) JVM Memory poll bytes
+Query: jvm_memory_bytes_used
+Legend format: {{job}},{{area}}
+
+2) Instance Monitoring
+Query: up
+Legend format: {{instance}}
+
+3) Process Monitoring per application
+Query: sum (process_state_count) by (ApplicationName, ProcessInstanceState)
+Legend format: {{ApplicationName}},{{ProcessInstanceState}}
+
+4) Activity Monitoring for all applications
+Query: all_activity_events_count
+Legend format: {{StateName}}
