@@ -14,8 +14,8 @@ docker run -d -p 9095:9095 -p exposed-port-by-application:8080 -e BW_PROMETHEUS_
 To enable logging pass environment variable BW_LOGLEVEL=INFO|DEBUG <br/>
 Now, hit the application endpoint and check the metrics here: http://your-machine-ip:9095/metrics
 * Add prometheus.yml file and run the Prometheus server to scrape metrics generated in last step using the below commands: <br/>
-** cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
-** docker run -d -p 9090:9090 -v ~/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus --config.file=/etc/prometheus/prometheus.yml
+  * cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
+  * docker run -d -p 9090:9090 -v ~/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus --config.file=/etc/prometheus/prometheus.yml
 
 ## Prometheus for PCF
 
@@ -24,11 +24,11 @@ To enable Prometheus monitoring for applications running in PCF follow the below
 * Add JAR of this plugin in addons/jar folder and build the buildpack.
 * Push your application to the cloud using newly created buildpack. Once application gets started you would be able to see the Prometheus metrics at applications-routable-url/merics endpoint.
 * Add promregator.yml file and run the Promregator server using below command: <br/> 
-cp path-to-file/promregator.yml ~/promregator.yml <br/> 
-docker run -d --name promregator -p 127.0.0.1:56710:8080 -v ~/promregator.yml:/etc/promregator/promregator.yml -e CF_PASSWORD=cloud-foundary-password promregator/promregator:0.4.1
+  * cp path-to-file/promregator.yml ~/promregator.yml <br/> 
+  * docker run -d --name promregator -p 127.0.0.1:56710:8080 -v ~/promregator.yml:/etc/promregator/promregator.yml -e CF_PASSWORD=cloud-foundary-password promregator/promregator:0.4.1
 * Add prometheus.yml file and run the Prometheus server using below command: <br/>
-** cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
-** docker run --name prometheus -v ~/prometheus.yml:/etc/prometheus/prometheus.yml -p 127.0.0.1:9090:9090 --link promregator prom/prometheus:latest
+  * cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
+  * docker run --name prometheus -v ~/prometheus.yml:/etc/prometheus/prometheus.yml -p 127.0.0.1:9090:9090 --link promregator prom/prometheus:latest
 
 ## Grafana Integration to Prometheus
 
