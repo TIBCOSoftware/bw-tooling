@@ -11,7 +11,7 @@ scrape_configs:
   - job_name: 'bwdockermonitoring'
     honor_labels: true
     static_configs:
-      - targets: ['<your-machine-ip>:9095']
+      - targets: ['<your-machine-ip>:9095'] #Use comma separated endpoints to scrape multiple targets. And make sure the port 9095 is exposed in application's Dockerfile and mapped to different port while running the application. You can also mention new target in different job_name.
         labels:
           group: 'prod'
         
