@@ -33,5 +33,9 @@ public class Utils {
 		buf.append(format3.format(cal.get(Calendar.MILLISECOND)));
 		return buf.toString();
 	}
+	
+	public static String getNonNullValue(final String value) {
+		return value != null ? value : "-";
+	}
 
 }
