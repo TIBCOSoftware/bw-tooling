@@ -14,7 +14,8 @@ Bundle-Activator: com.tibco.bw.prometheus.monitor.Activator
 Bundle-Vendor: TIBCO Software Inc.
 Require-Bundle: com.tibco.bw.thor.management.common
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
-Service-Component: OSGI-INF/*.xml
+Service-Component: OSGI-INF/component.xml
+Bundle-ActivationPolicy: lazy
 Import-Package: .;version="1.0.200",
  com.tibco.bw.runtime;version="[6.2.100,7.0.0)",
  com.tibco.bw.runtime.event;version="[6.2.100,7.0.0)",
@@ -42,4 +43,3 @@ Import-Package: .;version="1.0.200",
  org.osgi.service.event;version="[1.3.0,2.0.0)",
  org.osgi.util.tracker;version="1.5.1",
  org.slf4j;version="1.8.0"
-Bundle-ActivationPolicy: lazy
