@@ -6,6 +6,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.tibco.bw.prometheus.monitor.util.Utils;
+
 public class ActivityStats implements Serializable {
 
 	private static final long serialVersionUID = -350203686385672509L;
@@ -203,13 +205,21 @@ public class ActivityStats implements Serializable {
 		lsvalues.add(this.ProcessInstanceId);
 		lsvalues.add(this.ActivityStartTime);
 		lsvalues.add(this.ActivityEndTime);
-		lsvalues.add(this.ActivityDurationTime.toString());
-		lsvalues.add(this.ActivityEvalTime.toString());
+		if(this.ActivityDurationTime != null){
+			lsvalues.add(this.ActivityDurationTime.toString());
+		}else{
+			lsvalues.add("-1");
+		}
+		if(this.ActivityEvalTime != null){
+			lsvalues.add(this.ActivityEvalTime.toString());
+		}else{
+			lsvalues.add("-1");
+		}
 		lsvalues.add(this.ActivityState);
-		lsvalues.add(this.DomainName);
-		lsvalues.add(this.AppspaceName);
-		lsvalues.add(this.AppnodeName);
-		lsvalues.add(this.ActivityExecutionId);
+		lsvalues.add(Utils.getNonNullValue(this.DomainName));
+		lsvalues.add(Utils.getNonNullValue(this.AppspaceName));
+		lsvalues.add(Utils.getNonNullValue(this.AppnodeName));
+		lsvalues.add(Utils.getNonNullValue(this.ActivityExecutionId));
 		return lsvalues;
 	}
 	

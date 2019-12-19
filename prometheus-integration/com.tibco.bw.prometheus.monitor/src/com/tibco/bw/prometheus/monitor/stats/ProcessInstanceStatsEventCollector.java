@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.stream.Collectors;
 
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
@@ -44,6 +45,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 
 	private static List<Sample> processSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
 	private static List<Sample> processCounterSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
+	private static List<Sample> processCounterDurationSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
     
 	static Map<String,Integer> processStateCounterMap = new HashMap<String,Integer>();
 	static {
@@ -115,6 +117,8 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 	private void updateProcessEventCounter(String name) {
 		if(processStateCounterMap.containsKey(name)){
 			processStateCounterMap.put(name, processStateCounterMap.get(name) + 1);
+		}else{
+			processStateCounterMap.put(name, 1);
 		}
 	}
 	
@@ -124,6 +128,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 
 	private void addStatsToMetrics(final Map<String, Object> pStatMap,
 			final ProcessAuditEvent event) {
+		try{
 		ProcessStats pis = new ProcessStats();
 		pis.setApplicationName(event.getApplicationName());
 		pis.setApplicationVersion(event.getApplicationVersion());
@@ -179,14 +184,32 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		// Add Metrics
 		processSampleList.add(new Sample("process_stats_total", ProcessStats.getProcessStatsKeyList(), pis.getProcessStatsValueList(), 1));
 		processCounterSampleList.add(new Sample("process_duration_count",ProcessStats.getProcessCounterKeyList(), pis.getProcessCounterValueList(), pis.getProcessInstanceDurationTime()));
+		}catch(Throwable ex){
+			logger.warn("Exception error handling Process Metrics", ex);
+			
+		}
 	}
 	
 	public static List<MetricFamilySamples> getCollection() {
+		
+		
+	
+		
+		List<Sample> copyProcessSampleList = new ArrayList<>();
+		copyProcessSampleList.addAll(processSampleList);
+		
 		MetricFamilySamples processMFS = new MetricFamilySamples("bwce_process_stats", 
-				Type.GAUGE, "BWCE Process Statistics list", processSampleList);
+				Type.GAUGE, "BWCE Process Statistics list", copyProcessSampleList);
+				
+		
+		
+		List<Sample> copyProcessCounterSampleList = new ArrayList<>();
+		copyProcessCounterSampleList.addAll(processCounterSampleList);
 		
 		MetricFamilySamples processCountersMFS = new MetricFamilySamples("bwce_process_counter_list", 
 				Type.GAUGE, "BWCE Process related Counters list", processCounterSampleList);
+		
+			
 	
 		CounterMetricFamily allProcessEventCounter = new CounterMetricFamily("all_process_events_count", "BWCE All Process Events count by State",Arrays.asList("StateName"));
 		allProcessEventCounter.addMetric(Arrays.asList(State.CANCELLED.name()), processStateCounterMap.get(State.CANCELLED.name()));
@@ -199,6 +222,11 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		mfs.add(processCountersMFS);
 		mfs.add(allProcessEventCounter);
 		return mfs;
+	}
+	
+	public void reset(){
+		processCounterSampleList.clear();
+		processSampleList.clear();
 	}
 
 }
