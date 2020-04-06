@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
@@ -27,6 +28,7 @@ import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.tibco.bw.prometheus.monitor.ConfigurationManager;
 import com.tibco.bw.prometheus.monitor.model.ProcessStats;
 import com.tibco.bw.prometheus.monitor.util.Utils;
 import com.tibco.bw.runtime.event.ProcessAuditEvent;
@@ -39,6 +41,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 	private static final String BW_APPNODE_PROPERTY = "bw.appnode";
 	private static final String BW_DOMAIN_PROPERTY = "bw.domain";
 	private static final String BW_APPSPACE_PROPERTY = "bw.appspace";
+	private ConfigurationManager config = ConfigurationManager.getInstance();
 
 	private final ConcurrentMap<String, Map<String, Object>> statMaps = new ConcurrentHashMap<String, Map<String, Object>>();
 	private ContianerInfo deploymentInfo = ContianerInfo.get();
@@ -55,6 +58,9 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		processStateCounterMap.put(State.CANCELLED.name(), 0);
 	}
 	
+	static Map<String, HashMap<String, Integer>> processCounterMap = new HashMap<String,HashMap<String,Integer>>();
+	
+	
 	@Override
 	public void handleEvent(final Event event) {
 		if (logger.isDebugEnabled()) {
@@ -64,11 +70,15 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		ProcessAuditEvent processEvent = (ProcessAuditEvent) event.getProperty(EVENT_DATA_PROPERTY);
 		String pId = processEvent.getProcessInstanceId();
 		if (processEvent.getProcessInstanceState() != State.INFORMATIVE) {
-			processCounterSampleList.add(new Sample("process_state_count",ProcessStats.getProcessCounterKeyList(), getProcessStateCounterList(processEvent), 1));
+			if(config.isProcessDetailedEnabled()){
+				processCounterSampleList.add(new Sample("process_state_count",ProcessStats.getProcessCounterKeyList(), getProcessStateCounterList(processEvent), 1));
+			}
 		}
 		updateProcessEventCounter(processEvent.getProcessInstanceState().name());
+		updateProcessCounter(processEvent);		
 		
 		if (State.STARTED == processEvent.getProcessInstanceState()) {
+
 			Map<String, Object> processStatMap = new HashMap<String, Object>();
 			for (String propName : event.getPropertyNames()) {
 				processStatMap.put(propName, event.getProperty(propName));
@@ -120,6 +130,22 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		}else{
 			processStateCounterMap.put(name, 1);
 		}
+	}
+	
+	
+	private void updateProcessCounter(ProcessAuditEvent audit) {
+		HashMap<String, Integer> map = processCounterMap.get(audit.getProcessName());
+		if(map == null){
+			map = new HashMap<String,Integer>();
+		}
+		
+		Integer value = map.get(audit.getProcessInstanceState().name());
+		if(value == null){
+			value = 0;
+		}
+		map.put(audit.getProcessInstanceState().name(), value + 1);
+		processCounterMap.put(audit.getProcessName(), map);
+		
 	}
 	
 	private String getNonNullValue(final String value) {
@@ -182,8 +208,10 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 //		}
 		
 		// Add Metrics
-		processSampleList.add(new Sample("process_stats_total", ProcessStats.getProcessStatsKeyList(), pis.getProcessStatsValueList(), 1));
-		processCounterSampleList.add(new Sample("process_duration_count",ProcessStats.getProcessCounterKeyList(), pis.getProcessCounterValueList(), pis.getProcessInstanceDurationTime()));
+		if(config.isProcessDetailedEnabled()){
+			processSampleList.add(new Sample("process_stats_total", ProcessStats.getProcessStatsKeyList(), pis.getProcessStatsValueList(), 1));
+			processCounterSampleList.add(new Sample("process_duration_count",ProcessStats.getProcessCounterKeyList(), pis.getProcessCounterValueList(), pis.getProcessInstanceDurationTime()));
+		}
 		}catch(Throwable ex){
 			logger.warn("Exception error handling Process Metrics", ex);
 			
@@ -217,10 +245,20 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		allProcessEventCounter.addMetric(Arrays.asList(State.STARTED.name()), processStateCounterMap.get(State.STARTED.name()));
 		allProcessEventCounter.addMetric(Arrays.asList(State.FAULTED.name()), processStateCounterMap.get(State.FAULTED.name()));
 		
+		
+		CounterMetricFamily processEventCounter = new CounterMetricFamily("process_events_count", "BWCE Process Events count by Process",Arrays.asList("ProcessName","StateName"));
+		for(String entry : processCounterMap.keySet()){
+			for(String state : processCounterMap.get(entry).keySet()){
+				processEventCounter.addMetric(Arrays.asList(entry,state) , processCounterMap.get(entry).get(state));
+			}
+		}
+		
+		
 		List<MetricFamilySamples> mfs = new ArrayList<>();
 		mfs.add(processMFS);
 		mfs.add(processCountersMFS);
 		mfs.add(allProcessEventCounter);
+		mfs.add(processEventCounter);
 		return mfs;
 	}
 	
