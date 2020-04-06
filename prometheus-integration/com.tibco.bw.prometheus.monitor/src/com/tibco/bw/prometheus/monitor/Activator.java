@@ -25,7 +25,9 @@ public class Activator implements BundleActivator {
 	public void start(BundleContext bundleContext) throws Exception {
 		Activator.context = bundleContext;
 
+
 		ConfigurationManager config = ConfigurationManager.getInstance(); 
+
 		
 		if (config.isPrometheusEnabled()) {
 			logger.info("Starting the Prometheus Monitoring Bundle");

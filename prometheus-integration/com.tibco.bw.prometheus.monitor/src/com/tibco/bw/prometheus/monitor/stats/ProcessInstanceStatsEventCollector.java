@@ -142,6 +142,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		Integer value = map.get(audit.getProcessInstanceState().name());
 		if(value == null){
 			value = 0;
+
 		}
 		map.put(audit.getProcessInstanceState().name(), value + 1);
 		processCounterMap.put(audit.getProcessName(), map);
@@ -208,10 +209,12 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 //		}
 		
 		// Add Metrics
+
 		if(config.isProcessDetailedEnabled()){
 			processSampleList.add(new Sample("process_stats_total", ProcessStats.getProcessStatsKeyList(), pis.getProcessStatsValueList(), 1));
 			processCounterSampleList.add(new Sample("process_duration_count",ProcessStats.getProcessCounterKeyList(), pis.getProcessCounterValueList(), pis.getProcessInstanceDurationTime()));
 		}
+
 		}catch(Throwable ex){
 			logger.warn("Exception error handling Process Metrics", ex);
 			
