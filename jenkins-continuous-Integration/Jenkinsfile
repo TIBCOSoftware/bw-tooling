@@ -1,0 +1,42 @@
+pipeline 
+{
+    agent 
+    {
+        label 'build_agent'
+    }
+    
+    environment 
+    {               
+        BW_HOME_bin = "BW_HOME\bin"        
+    }
+
+    stages  
+    {
+        stage("[XVFB] Running Xvfb service") 
+        {     
+            steps 
+            {
+                sh 'export DISPLAY=:1'
+                sh 'Xvfb :1 > /dev/null 2>&1 &'           
+            }            
+        }
+        
+        stage("[bwdesign] repo import workspace") 
+        {     
+            steps 
+            {               
+                sh 'bwdesign -data $(Agent.BuildDirectory)/$(bwWorkspace)/$(projectName) system:import $(Build.SourcesDirectory)}'  
+            }
+        }        
+        
+        stage("[bedesign] export ear") 
+        {     
+            steps 
+            {
+                sh 'bwdesign -data $(Agent.BuildDirectory)/$(bwWorkspace)/$(projectName)  system:export -e $(projectName).application $(Agent.BuildDirectory)/$(bwEar)"'                
+            }
+        }
+    
+    }
+
+}
