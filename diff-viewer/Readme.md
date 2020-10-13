@@ -164,7 +164,7 @@ Shared Resource Diff :
 
 Shared resource diff support is added in 6.7.0 GA. It works similar to process diff.
 
-	![](../../../blob/master/diff-viewer/images/SR_Diff.png)
+![](../../../blob/master/diff-viewer/images/SR_Diff.png)
 
 Please note the support for Shared resouce diff in 6.7.0 is limited to the resources that are shipped with the product.
 
