@@ -170,6 +170,7 @@ Note :
 1. Namespace registry feature does autopopulate namespace prefixes due to which change is indicated in the input of an Activity,
    but there will be no visible change on the UI. This change may come as a side effect of changing input mapping of any activity in the process.
    This auto population of prefixes can be turned off by updating preference.
+   
    ![](../../../blob/master/diff-viewer/images/namespace_registry_preference.png)
 
 2. In order to turn off visual diff, update the preference.
