@@ -27,6 +27,7 @@ Table of Contents
 
 
 Overview of Diff Viewer
+
 After comparing different versions of a process, diff viewer is displayed with decorations to indicate the activities changed and navigation controls to navigate through the modified activities and their modified properties.
 
 ![](../../../blob/master/diff-viewer/images/diff_viewer_overview.png)
