@@ -96,7 +96,7 @@ As you can see in the screenshot, only “General” and “Input” tabs are de
 
 
 
-Diff viewer scope in 6.6.1 GA 
+Diff viewer scope in 6.7.0 GA 
 You can use the Visual diff tool for comparing :
 
 1.	General and Basic Palettes
@@ -104,6 +104,7 @@ You can use the Visual diff tool for comparing :
 3.	Fault handlers (Catch , CatchAll)
 4.	Process / Scope variables (primitive types only)
 5.	All process properties.
+6.	Shared Resources. (Resources which are shipped with the product)
 
 
 Modes of usage
@@ -163,6 +164,7 @@ Shared Resource Diff :
 Shared resource diff support is added in 6.7.0 GA. It works similar to process diff.
 	![](../../../blob/master/diff-viewer/images/SR_Diff.png)
 
+Please note the support for Shared resouce diff in 6.7.0 is limited to the resources that are shipped with the product.
 
 
 Note : 
@@ -180,6 +182,6 @@ Note :
 
 ![](../../../blob/master/diff-viewer/images/preference.png)
 
-The above preference changes the way process files are compared, comparison of artifacts will work as before 6.6.1 
+The above preference changes the way process files are compared, comparison of artifacts like process, shared resource, module properties will work as before 6.6.1.
 
-![](../../../blob/master/diff-viewer/images/xml_xsd_diff.png)   
+![](../../../blob/master/diff-viewer/images/Tree_Viewer_Diff.png)
