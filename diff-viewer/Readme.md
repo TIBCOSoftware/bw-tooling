@@ -11,7 +11,7 @@ Table of Contents
 * Applicable BW Version
 * Enable visual diff
 * Overview of Diff Viewer
-* Supported features in 6.6.1 GA
+* Supported features in 6.7.0 GA
 * Modes of usage
 * Local History
 * Comparing a process from a previous revision from SVN Repository
@@ -19,7 +19,7 @@ Table of Contents
 
 
 <h4>Prerequisite</h4><br/>
-               BW 6.6.1 GA or later.<br/><br/>
+               BW 6.7.0 GA or later.<br/><br/>
 
 <h4>Intended Audience</h4><br/>
 		BW Developer, Plug-in Developer.<br/><br/>
