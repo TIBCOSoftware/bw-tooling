@@ -26,22 +26,6 @@ Table of Contents
 
 
 
-
-Enable visual diff
-In order to use visual diff, enable the tool from the preference.
-
-1. Go to Windows > Preferences > BusinessWorks > Team Development.
-2. Select the “Enable visual diff” check box and click “Apply”.
-
-
-![](../../../blob/master/diff-viewer/images/preference.png)
-
-The above preference changes the way process files are compared, however comparison of other artifacts like XML, WSDL, XSD .etc  will work as before 6.6.1 
-
-![](../../../blob/master/diff-viewer/images/xml_xsd_diff.png)
-
-
-
 Overview of Diff Viewer
 After comparing different versions of a process, diff viewer is displayed with decorations to indicate the activities changed and navigation controls to navigate through the modified activities and their modified properties.
 
@@ -187,3 +171,14 @@ Note :
    but there will be no visible change on the UI. This change may come as a side effect of changing input mapping of any activity in the process.
    This auto population of prefixes can be turned off by updating preference.
    ![](../../../blob/master/diff-viewer/images/namespace_registry_preference.png)
+
+2. In order to turn off visual diff, update the preference.
+
+	1. Go to Windows > Preferences > BusinessWorks > Team Development.
+	2. Update the “Enable visual diff” check box and click “Apply”.
+
+![](../../../blob/master/diff-viewer/images/preference.png)
+
+The above preference changes the way process files are compared, comparison of artifacts will work as before 6.6.1 
+
+![](../../../blob/master/diff-viewer/images/xml_xsd_diff.png)   
