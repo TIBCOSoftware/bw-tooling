@@ -172,3 +172,18 @@ Prerequisite : Project is imported from Git repository and there are previous re
 5.	Right Click and select Compare with Each Other.
         ![](../../../blob/master/diff-viewer/images/git_history_view.png)
 6.	The TIBCO Business Studio for BusinessWorks(TM) displays the process compare editor and the respective property views.
+
+
+Shared Resource Diff : 
+
+Shared resource diff support is added in 6.7.0 GA. It works similar to process diff.
+	![](../../../blob/master/diff-viewer/images/SR_Diff.png)
+
+
+
+Note : 
+
+1. Namespace registry feature does autopopulate namespace prefixes due to which change is indicated in the input of an Activity,
+   but there will be no visible change on the UI. This change may come as a side effect of changing input mapping of any activity in the process.
+   This auto population of prefixes can be turned off by updating preference.
+   ![](../../../blob/master/diff-viewer/images/namespace_registry_preference.png)
