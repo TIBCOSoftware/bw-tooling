@@ -11,7 +11,7 @@ Table of Contents
 * Applicable BW Version
 * Enable visual diff
 * Overview of Diff Viewer
-* Supported features in 6.6.1 GA
+* Supported features in 6.7.0 GA
 * Modes of usage
 * Local History
 * Comparing a process from a previous revision from SVN Repository
@@ -19,33 +19,18 @@ Table of Contents
 
 
 <h4>Prerequisite</h4><br/>
-               BW 6.6.1 GA or later.<br/><br/>
+               BW 6.7.0 GA or later.<br/><br/>
 
 <h4>Intended Audience</h4><br/>
 		BW Developer, Plug-in Developer.<br/><br/>
 
 
 
-
-Enable visual diff
-In order to use visual diff, enable the tool from the preference.
-
-1. Go to Windows > Preferences > BusinessWorks > Team Development.
-2. Select the “Enable visual diff” check box and click “Apply”.
-
-
-![](../../../blob/master/diff-viewer/images/preference.png)
-
-The above preference changes the way process files are compared, however comparison of other artifacts like XML, WSDL, XSD .etc  will work as before 6.6.1 
-
-![](../../../blob/master/diff-viewer/images/xml_xsd_diff.png)
-
-
-
 Overview of Diff Viewer
+
 After comparing different versions of a process, diff viewer is displayed with decorations to indicate the activities changed and navigation controls to navigate through the modified activities and their modified properties.
 
-![](../../../blob/master/diff-viewer/images/diff_viewer_overview.png)
+![](../../../blob/master/diff-viewer/images/new_diff_viewer_overview.png)
 
 Navigation :
 
@@ -67,7 +52,7 @@ Navigation :
 
 While navigating, current activity change is marked by selection indicators and property view for respective activities shown on each side as applicable.
 
-![](../../../blob/master/diff-viewer/images/activity_decoration.png)
+![](../../../blob/master/diff-viewer/images/new_activity_decoration.png)
 
 <table>
 <tr>
@@ -97,22 +82,22 @@ As you can see in the screenshot, only “General” and “Input” tabs are de
     <td colspan="2">Change Indicators</td>
   </tr>
   <tr>
-    <td><img src="../../../blob/master/diff-viewer/images/activity_added.png"/></td>
-    <td>Green “+” indicates a newly added activity.</td>
+    <td><img src="../../../blob/master/diff-viewer/images/new_activity_added.png"/></td>
+    <td>Blue indicates a newly added activity.</td>
   </tr>
   <tr>
-    <td><img src="../../../blob/master/diff-viewer/images/activity_deleted.png"/></td>
-    <td>Red “-” indicates deletion of an activity.</td>
+    <td><img src="../../../blob/master/diff-viewer/images/new_activity_deleted.png"/></td>
+    <td>Red indicates deletion of an activity.</td>
   </tr>  
   <tr>
-    <td><img src="../../../blob/master/diff-viewer/images/activity_changed.png"/></td>
-    <td>Gray “*” indicates changes in one or more properties of that activity.</td>
+    <td><img src="../../../blob/master/diff-viewer/images/new_activity_modified.png"/></td>
+    <td>Orange indicates changes in one or more properties of that activity.</td>
   </tr>  
 </table>
 
 
 
-Diff viewer scope in 6.6.1 GA 
+Diff viewer scope in 6.7.0 GA 
 You can use the Visual diff tool for comparing :
 
 1.	General and Basic Palettes
@@ -120,6 +105,7 @@ You can use the Visual diff tool for comparing :
 3.	Fault handlers (Catch , CatchAll)
 4.	Process / Scope variables (primitive types only)
 5.	All process properties.
+6.	Shared Resources. (Resources which are shipped with the product)
 
 
 Modes of usage
@@ -140,7 +126,7 @@ Prerequisite : The user has modified the selected process and saved the file at 
 4.	Right-click and select Compare with Each Other.
 	![](../../../blob/master/diff-viewer/images/local_history_compare_with_each_other.png)
 5.	The TIBCO Business Studio for BusinessWorks(TM) opens a new BW Compare perspective and displays the process diff visually. Changes are not permitted to the process in this perspective. You can go back to the "Design" perspective to modify the process.
-![](../../../blob/master/diff-viewer/images/diff_viewer.png)
+![](../../../blob/master/diff-viewer/images/new_diff_viewer.png)
 
 
 Comparing a process from a previous revision from SVN Repository
@@ -172,3 +158,32 @@ Prerequisite : Project is imported from Git repository and there are previous re
 5.	Right Click and select Compare with Each Other.
         ![](../../../blob/master/diff-viewer/images/git_history_view.png)
 6.	The TIBCO Business Studio for BusinessWorks(TM) displays the process compare editor and the respective property views.
+
+
+Shared Resource Diff : 
+
+Shared resource diff support is added in 6.7.0 GA. It works similar to process diff.
+
+![](../../../blob/master/diff-viewer/images/SR_Diff.png)
+
+Please note the support for Shared resouce diff in 6.7.0 is limited to the resources that are shipped with the product.
+
+
+Note : 
+
+1. Namespace registry feature does autopopulate namespace prefixes due to which change is indicated in the input of an Activity,
+   but there will be no visible change on the UI. This change may come as a side effect of changing input mapping of any activity in the process.
+   This auto population of prefixes can be turned off by updating preference.
+   
+   ![](../../../blob/master/diff-viewer/images/namespace_registry_preference.png)
+
+2. In order to turn off visual diff, update the preference.
+
+	1. Go to Windows > Preferences > BusinessWorks > Team Development.
+	2. Update the “Enable visual diff” check box and click “Apply”.
+
+![](../../../blob/master/diff-viewer/images/new_preference.png)
+
+The above preference changes the way process files are compared, comparison of artifacts like process, shared resource, module properties will work as before 6.6.1.
+
+![](../../../blob/master/diff-viewer/images/Tree_Viewer_Diff.png)
