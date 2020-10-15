@@ -30,7 +30,7 @@ Overview of Diff Viewer
 
 After comparing different versions of a process, diff viewer is displayed with decorations to indicate the activities changed and navigation controls to navigate through the modified activities and their modified properties.
 
-![](../../../blob/master/diff-viewer/images/diff_viewer_overview.png)
+![](../../../blob/master/diff-viewer/images/new_diff_viewer_overview.png)
 
 Navigation :
 
@@ -52,7 +52,7 @@ Navigation :
 
 While navigating, current activity change is marked by selection indicators and property view for respective activities shown on each side as applicable.
 
-![](../../../blob/master/diff-viewer/images/activity_decoration.png)
+![](../../../blob/master/diff-viewer/images/new_activity_decoration.png)
 
 <table>
 <tr>
@@ -82,16 +82,16 @@ As you can see in the screenshot, only “General” and “Input” tabs are de
     <td colspan="2">Change Indicators</td>
   </tr>
   <tr>
-    <td><img src="../../../blob/master/diff-viewer/images/activity_added.png"/></td>
-    <td>Green “+” indicates a newly added activity.</td>
+    <td><img src="../../../blob/master/diff-viewer/images/new_activity_added.png"/></td>
+    <td>Blue indicates a newly added activity.</td>
   </tr>
   <tr>
-    <td><img src="../../../blob/master/diff-viewer/images/activity_deleted.png"/></td>
-    <td>Red “-” indicates deletion of an activity.</td>
+    <td><img src="../../../blob/master/diff-viewer/images/new_activity_deleted.png"/></td>
+    <td>Red indicates deletion of an activity.</td>
   </tr>  
   <tr>
-    <td><img src="../../../blob/master/diff-viewer/images/activity_changed.png"/></td>
-    <td>Gray “*” indicates changes in one or more properties of that activity.</td>
+    <td><img src="../../../blob/master/diff-viewer/images/new_activity_modified.png"/></td>
+    <td>Orange indicates changes in one or more properties of that activity.</td>
   </tr>  
 </table>
 
@@ -126,7 +126,7 @@ Prerequisite : The user has modified the selected process and saved the file at 
 4.	Right-click and select Compare with Each Other.
 	![](../../../blob/master/diff-viewer/images/local_history_compare_with_each_other.png)
 5.	The TIBCO Business Studio for BusinessWorks(TM) opens a new BW Compare perspective and displays the process diff visually. Changes are not permitted to the process in this perspective. You can go back to the "Design" perspective to modify the process.
-![](../../../blob/master/diff-viewer/images/diff_viewer.png)
+![](../../../blob/master/diff-viewer/images/new_diff_viewer.png)
 
 
 Comparing a process from a previous revision from SVN Repository
@@ -182,7 +182,7 @@ Note :
 	1. Go to Windows > Preferences > BusinessWorks > Team Development.
 	2. Update the “Enable visual diff” check box and click “Apply”.
 
-![](../../../blob/master/diff-viewer/images/preference.png)
+![](../../../blob/master/diff-viewer/images/new_preference.png)
 
 The above preference changes the way process files are compared, comparison of artifacts like process, shared resource, module properties will work as before 6.6.1.
 
