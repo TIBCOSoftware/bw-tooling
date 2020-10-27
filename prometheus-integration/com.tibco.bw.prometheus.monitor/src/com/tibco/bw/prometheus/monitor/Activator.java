@@ -12,8 +12,7 @@ public class Activator implements BundleActivator {
 
 	private static BundleContext context;
 	private final static Logger logger = LoggerFactory.getLogger(Activator.class);
-	private static final String BW_PROMETHEUS_ENABLE = "BW_PROMETHEUS_ENABLE";
-	private static boolean isPrometheusEnable = false;
+	
 
 	public static BundleContext getContext() {
 		return context;
@@ -26,11 +25,11 @@ public class Activator implements BundleActivator {
 	public void start(BundleContext bundleContext) throws Exception {
 		Activator.context = bundleContext;
 
-		if ((System.getenv(BW_PROMETHEUS_ENABLE) != null && System.getenv(BW_PROMETHEUS_ENABLE).equalsIgnoreCase("true")) || (System.getProperty(BW_PROMETHEUS_ENABLE) != null && System.getProperty(BW_PROMETHEUS_ENABLE).equalsIgnoreCase("true"))) {
-			isPrometheusEnable = true;
-		} 
+
+		ConfigurationManager config = ConfigurationManager.getInstance(); 
+
 		
-		if (isPrometheusEnable) {
+		if (config.isPrometheusEnabled()) {
 			logger.info("Starting the Prometheus Monitoring Bundle");
 			PrometheusCollector.run();
 		} else {

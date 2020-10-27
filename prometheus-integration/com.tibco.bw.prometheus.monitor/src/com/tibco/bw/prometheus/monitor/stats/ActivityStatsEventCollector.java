@@ -29,6 +29,7 @@ import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.tibco.bw.prometheus.monitor.ConfigurationManager;
 import com.tibco.bw.prometheus.monitor.model.ActivityStats;
 import com.tibco.bw.prometheus.monitor.util.Utils;
 import com.tibco.bw.runtime.event.ActivityAuditEvent;
@@ -44,6 +45,7 @@ public class ActivityStatsEventCollector implements EventHandler {
 	private final ConcurrentMap<String, Map<String, Object>> statMaps = new ConcurrentHashMap<String, Map<String, Object>>();
 	private ActivityStats activityStats = new ActivityStats();
 	private ContianerInfo deploymentInfo = ContianerInfo.get();
+	private ConfigurationManager config = ConfigurationManager.getInstance();
 	
 	static Map<String,Integer> activityStateCounterMap = new HashMap<String,Integer>();
 	static {
@@ -52,6 +54,9 @@ public class ActivityStatsEventCollector implements EventHandler {
 		activityStateCounterMap.put(State.FAULTED.name(), 0);
 		activityStateCounterMap.put(State.CANCELLED.name(), 0);
 	}
+	
+	
+	static Map<String, HashMap<String, Integer>> activityCounterMap = new HashMap<String,HashMap<String,Integer>>();
 	
 	private static List<Sample> activitySampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
 	private static List<Sample> activityCounterSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
@@ -67,8 +72,11 @@ public class ActivityStatsEventCollector implements EventHandler {
 		String activityExecutionId = activityEvent.getActivityExecutionId();
 		String key = activityName + pId + activityExecutionId;
 		
-		activityCounterSampleList.add(new Sample("activity_state_count",ActivityStats.getActivityCounterKeyList(), getActivityStateCounterList(activityEvent), 1));
+		if(config.isActivityDetailedEnabled()){
+			activityCounterSampleList.add(new Sample("activity_state_count",ActivityStats.getActivityCounterKeyList(), getActivityStateCounterList(activityEvent), 1));
+		}
 		updateTotalActivityEventCounter(activityEvent.getActivityState().name());
+		updateActivityCounter(activityEvent);
 		
 		if (State.STARTED == activityEvent.getActivityState()) {
 			Map<String, Object> activityStatMap = new HashMap<String, Object>();
@@ -91,8 +99,10 @@ public class ActivityStatsEventCollector implements EventHandler {
 		} else if (State.COMPLETED == activityEvent.getActivityState()
 				|| State.FAULTED == activityEvent.getActivityState()
 				|| State.CANCELLED == activityEvent.getActivityState()) {
+
 			Map<String, Object> activityStatMap = new HashMap<String, Object>();
 			if (null == statMaps.get(key)) {
+				
 				activityStatMap.put(END_TIME_PROPERTY,(activityEvent.getActivityEndTime()));
 				activityStatMap.put(EVAL_TIME_PROPERTY,(activityEvent.getActivityEvalTime()));
 				activityStatMap.put(STATUS_PROPERTY, activityEvent.getActivityState().name());
@@ -113,6 +123,22 @@ public class ActivityStatsEventCollector implements EventHandler {
 		}
 	}
 	
+	private void updateActivityCounter(ActivityAuditEvent activityEvent) {
+		String key=activityEvent.getProcessName()+"#"+activityEvent.getActivityName();
+		HashMap<String, Integer> mapAct = activityCounterMap.get(key);
+		if(mapAct == null){
+			mapAct = new HashMap<String,Integer>();			
+		}
+		Integer value = mapAct.get(activityEvent.getActivityState().name());
+		if(value == null){
+			mapAct.put(activityEvent.getActivityState().name(), 1);
+		}else{
+			mapAct.put(activityEvent.getActivityState().name(), value + 1);
+		}
+		activityCounterMap.put(key, mapAct);
+		
+	}
+
 	private List<String> getActivityStateCounterList(ActivityAuditEvent event) {
 		List<String> stateList = new ArrayList<>();
 		stateList.add(event.getApplicationName());
@@ -171,9 +197,11 @@ public class ActivityStatsEventCollector implements EventHandler {
 		activityStats.setActivityExecutionId(event.getActivityExecutionId());
 		
 		//Add Activity in Metrics
-		activitySampleList.add(new Sample("activity_stats_total", ActivityStats.getActivityStatsKeyList(), activityStats.getActivityStatsValueList(), 1));
-		activityCounterSampleList.add(new Sample("activity_duration_count",ActivityStats.getActivityCounterKeyList(), activityStats.getActivityCounterValueList(), activityStats.getActivityDurationTime()));
-		activityCounterSampleList.add(new Sample("activity_evaltime_count",ActivityStats.getActivityCounterKeyList(), activityStats.getActivityCounterValueList(), activityStats.getActivityEvalTime()));
+		if(config.isActivityDetailedEnabled()){
+			activitySampleList.add(new Sample("activity_stats_total", ActivityStats.getActivityStatsKeyList(), activityStats.getActivityStatsValueList(), 1));
+			activityCounterSampleList.add(new Sample("activity_duration_count",ActivityStats.getActivityCounterKeyList(), activityStats.getActivityCounterValueList(), activityStats.getActivityDurationTime()));
+			activityCounterSampleList.add(new Sample("activity_evaltime_count",ActivityStats.getActivityCounterKeyList(), activityStats.getActivityCounterValueList(), activityStats.getActivityEvalTime()));
+		}
 	}
 	
 	public static List<MetricFamilySamples> getCollection() {
@@ -189,10 +217,22 @@ public class ActivityStatsEventCollector implements EventHandler {
 		allActivityEventCounter.addMetric(Arrays.asList(State.STARTED.name()), activityStateCounterMap.get(State.STARTED.name()));
 		allActivityEventCounter.addMetric(Arrays.asList(State.FAULTED.name()), activityStateCounterMap.get(State.FAULTED.name()));
 		
+		CounterMetricFamily activityEventCounter = new CounterMetricFamily("activity_events_count", "BWCE All Activity Events count by Process, Activity State",Arrays.asList("ProcessName","ActivityName","StateName"));
+		for(String entry : activityCounterMap.keySet()){
+			for(String state : activityCounterMap.get(entry).keySet()){
+				String[] keyParts = entry.split("#");
+				if(keyParts.length > 1){
+					activityEventCounter.addMetric(Arrays.asList(keyParts[0],keyParts[1],state), activityCounterMap.get(entry).get(state));
+				}
+			}
+		}
+		
+		
 		List<MetricFamilySamples> mfs = new ArrayList<>();
 		mfs.add(activityMFS);
 		mfs.add(activityCountersMFS);
 		mfs.add(allActivityEventCounter);
+		mfs.add(activityEventCounter);
 		return mfs;
 	}
 
