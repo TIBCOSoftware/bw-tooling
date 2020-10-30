@@ -187,3 +187,59 @@ Note :
 The above preference changes the way process files are compared, comparison of artifacts like process, shared resource, module properties will work as before 6.6.1.
 
 ![](../../../blob/master/diff-viewer/images/Tree_Viewer_Diff.png)
+
+Module Properties Diff : 
+
+Module properties diff support is added in 6.7.0 GA. It works similar to process diff.
+
+![](../../../blob/master/diff-viewer/images/module_property_diff.png)
+
+The Module Properties sections of two different projects can be compared by selecting the two sections from the Project Explorer view as shown in the screenshot below.
+
+![](../../../blob/master/diff-viewer/images/compare_two_module_properties_sections.png)
+
+The Module Properties section of the same project can be compared with its local/svn/git history.
+
+Note : 
+1. Module properties diff will show the correct visual changes until the order in which the module properties are displayed is changed.
+   Operations such as "Move Up", "Move Down", operations related to module propeties groups lead to a change in the order of the module properties.
+   In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
+
+2. In order to turn off visual diff, update the preference.
+
+	1. Go to Windows > Preferences > BusinessWorks > Team Development.
+	2. Update the “Enable visual diff” check box and click “Apply”.
+
+![](../../../blob/master/diff-viewer/images/new_preference.png)
+
+The above preference changes the way process files are compared, comparison of artifacts like process, shared resource, module properties will work as before 6.6.1.
+
+![](../../../blob/master/diff-viewer/images/Tree_Viewer_Diff.png)
+
+Application Properties Diff : 
+
+Application properties diff support is added in 6.7.0 GA. It works similar to process diff.
+For supporting this feature, we have changed the way application properties view is shown in the Project Explorer.
+Now, from 6.7.0 onwards, all the profiles present in the application will be shown as the children of the Properties in the Project Explorer as shown in the below screenshot.
+
+![](../../../blob/master/diff-viewer/images/changed_app_property_tree.png)
+
+A profile can be compare with the other profile or it can be compared with its local/svn/git history.
+On comparing, the visual diff will be seen as shown in the below screenshot.
+
+![](../../../blob/master/diff-viewer/images/app_property_diff.png)
+
+Note : 
+1. Application properties diff will show the correct visual changes until the order in which the application properties are displayed is changed.
+   Operations such as moving a property from one group to another, operations related to application propeties groups lead to a change in the order of the application   propereties. In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
+
+2. In order to turn off visual diff, update the preference.
+
+	1. Go to Windows > Preferences > BusinessWorks > Team Development.
+	2. Update the “Enable visual diff” check box and click “Apply”.
+
+![](../../../blob/master/diff-viewer/images/new_preference.png)
+
+The above preference changes the way process files are compared, comparison of artifacts like process, shared resource, module properties will work as before 6.6.1.
+
+![](../../../blob/master/diff-viewer/images/Tree_Viewer_Diff.png)
