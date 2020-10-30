@@ -192,11 +192,11 @@ Module Properties Diff :
 
 Module properties diff support is added in 6.7.0 GA. It works similar to process diff.
 
-![](../../../blob/master/diff-viewer/images/module_property_diff.png)
+![](../../../blob/master/diff-viewer/images/module_property_diff.PNG)
 
 The Module Properties sections of two different projects can be compared by selecting the two sections from the Project Explorer view as shown in the screenshot below.
 
-![](../../../blob/master/diff-viewer/images/compare_two_module_properties_sections.png)
+![](../../../blob/master/diff-viewer/images/compare_two_module_properties_sections.PNG)
 
 The Module Properties section of the same project can be compared with its local/svn/git history.
 
@@ -222,12 +222,12 @@ Application properties diff support is added in 6.7.0 GA. It works similar to pr
 For supporting this feature, we have changed the way application properties view is shown in the Project Explorer.
 Now, from 6.7.0 onwards, all the profiles present in the application will be shown as the children of the Properties in the Project Explorer as shown in the below screenshot.
 
-![](../../../blob/master/diff-viewer/images/changed_app_property_tree.png)
+![](../../../blob/master/diff-viewer/images/changed_app_property_tree.PNG)
 
 A profile can be compare with the other profile or it can be compared with its local/svn/git history.
 On comparing, the visual diff will be seen as shown in the below screenshot.
 
-![](../../../blob/master/diff-viewer/images/app_property_diff.png)
+![](../../../blob/master/diff-viewer/images/app_property_diff.PNG)
 
 Note : 
 1. Application properties diff will show the correct visual changes until the order in which the application properties are displayed is changed.
