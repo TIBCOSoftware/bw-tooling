@@ -204,8 +204,14 @@ Note :
 1. Module properties diff will show the correct visual changes until the order in which the module properties are displayed is changed.
    Operations such as "Move Up", "Move Down", operations related to module propeties groups lead to a change in the order of the module properties.
    In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
+   
+2. Change in the description field of the properties will not be identified by the diff viewer.
 
-2. In order to turn off visual diff, update the preference.
+3. Diff viewer will not show the visual diff for those fields of the properties which are not visible in the diff viewer UI.
+
+4. In the substitution variables file, only five types of module properties are saved: String, Integer, Long, Boolean, and Password. So, when a module property is assigned a        type other than the above-mentioned types then that type is saved as a String in the substvar file. Hence, all the types other than the above-mentioned ones will be shown        as String type in the diff viewer.
+
+5. In order to turn off visual diff, update the preference.
 
 	1. Go to Windows > Preferences > BusinessWorks > Team Development.
 	2. Update the “Enable visual diff” check box and click “Apply”.
@@ -231,9 +237,17 @@ On comparing, the visual diff will be seen as shown in the below screenshot.
 
 Note : 
 1. Application properties diff will show the correct visual changes until the order in which the application properties are displayed is changed.
-   Operations such as moving a property from one group to another, operations related to application propeties groups lead to a change in the order of the application   propereties. In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
+   Operations such as moving a property from one group to another, operations related to application propeties groups lead to a change in the order of the application              propereties. In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
 
-2. In order to turn off visual diff, update the preference.
+2. Change in the description field of the properties will not be identified by the diff viewer.
+
+3. Diff viewer will not show the visual diff for those fields of the properties which are not visible in the diff viewer UI.
+
+4. Lock icon will be shown in the diff viewer depending upon the current workspace copy of the profile. If the workspace copy of the profile is encrypted then the diff viewer      will show the lock icon in the diff perespective even if the compared previous revisions were in decrypted form.
+
+5. In the substitution variables file, only five types of module properties are saved: String, Integer, Long, Boolean, and Password. So, when a module property is assigned a        type other than the above-mentioned types then that type is saved as a String in the substvar file. Hence, all the types other than the above-mentioned ones will be shown        as String type in the diff viewer.
+
+6. In order to turn off visual diff, update the preference.
 
 	1. Go to Windows > Preferences > BusinessWorks > Team Development.
 	2. Update the “Enable visual diff” check box and click “Apply”.
