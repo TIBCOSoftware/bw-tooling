@@ -190,7 +190,7 @@ The above preference changes the way process files are compared, comparison of a
 
 Module Properties Diff : 
 
-Module properties diff support is added in 6.7.0 GA. It works similar to process diff.
+Module properties diff support is added in 6.7.0 GA. It works similarly to process diff.
 
 ![](../../../blob/master/diff-viewer/images/module_property_diff.PNG)
 
@@ -202,8 +202,8 @@ The Module Properties section of the same project can be compared with its local
 
 Note : 
 1. Module properties diff will show the correct visual changes until the order in which the module properties are displayed is changed.
-   Operations such as "Move Up", "Move Down", operations related to module propeties groups lead to a change in the order of the module properties.
-   In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
+   Operations such as "Move Up", "Move Down", operations related to module properties groups lead to a change in the order of the module properties.
+   In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in future releases.
    
 2. Change in the description field of the properties will not be identified by the diff viewer.
 
@@ -224,26 +224,26 @@ The above preference changes the way process files are compared, comparison of a
 
 Application Properties Diff : 
 
-Application properties diff support is added in 6.7.0 GA. It works similar to process diff.
-For supporting this feature, we have changed the way application properties view is shown in the Project Explorer.
+Application properties diff support is added in 6.7.0 GA. It works similarly to process diff.
+For supporting this feature, we have changed the way the application properties view is shown in Project Explorer.
 Now, from 6.7.0 onwards, all the profiles present in the application will be shown as the children of the Properties in the Project Explorer as shown in the below screenshot.
 
 ![](../../../blob/master/diff-viewer/images/changed_app_property_tree.PNG)
 
-A profile can be compare with the other profile or it can be compared with its local/svn/git history.
+A profile can be compared with the other profile or it can be compared with its local/svn/git history.
 On comparing, the visual diff will be seen as shown in the below screenshot.
 
 ![](../../../blob/master/diff-viewer/images/app_property_diff.PNG)
 
 Note : 
 1. Application properties diff will show the correct visual changes until the order in which the application properties are displayed is changed.
-   Operations such as moving a property from one group to another, operations related to application propeties groups lead to a change in the order of the application              propereties. In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in the future releases.
+   Operations such as moving a property from one group to another, operations related to application properties groups lead to a change in the order of the application              properties. In such a case, the visual diff will not be generated properly in the 6.7.0. This issue will be addressed in future releases.
 
 2. Change in the description field of the properties will not be identified by the diff viewer.
 
 3. Diff viewer will not show the visual diff for those fields of the properties which are not visible in the diff viewer UI.
 
-4. Lock icon will be shown in the diff viewer depending upon the current workspace copy of the profile. If the workspace copy of the profile is encrypted then the diff viewer      will show the lock icon in the diff perespective even if the compared previous revisions were in decrypted form.
+4. Lock icon will be shown in the diff viewer depending upon the current workspace copy of the profile. If the workspace copy of the profile is encrypted then the diff viewer      will show the lock icon in the diff perspective even if the compared previous revisions were in decrypted form.
 
 5. In the substitution variables file, only five types of module properties are saved: String, Integer, Long, Boolean, and Password. So, when a module property is assigned a        type other than the above-mentioned types then that type is saved as a String in the substvar file. Hence, all the types other than the above-mentioned ones will be shown        as String type in the diff viewer.
 
