@@ -2,7 +2,7 @@
 
 Prometheus Monitoring for TIBCO BusinessWorks is an open source plug-in for TIBCO BusinessWorks. It is designed to monitor JVM, application's activity & process related statistics via [Prometheus](https://prometheus.io).
 
-## Prometheus for Docker
+## For BW apps running in Docker
 
 To enable Prometheus monitoring for applications running in Docker follow the below steps:
 * Add JAR of this plugin in addons/jar folder and build the base image (name it as bwce-base).
@@ -18,7 +18,7 @@ Now, hit the application endpoint and check the metrics here: http://your-machin
   * cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
   * docker run -d -p 9090:9090 -v ~/prometheus.yml:/etc/prometheus/prometheus.yml prom/prometheus --config.file=/etc/prometheus/prometheus.yml
 
-## Prometheus for PCF
+## For BW apps running in PAS (Formerly known as PCF)
 
 To enable Prometheus monitoring for applications running in PCF follow the below steps:
 * Set BW_PROMETHEUS_ENABLE environment variable to TRUE in the manifest.yml file of the application.
@@ -30,6 +30,22 @@ To enable Prometheus monitoring for applications running in PCF follow the below
 * Add prometheus.yml file and run the Prometheus server using below command: <br/>
   * cp path-to-file/prometheus.yml ~/prometheus.yml <br/> 
   * docker run --name prometheus -v ~/prometheus.yml:/etc/prometheus/prometheus.yml -p 127.0.0.1:9090:9090 --link promregator prom/prometheus:latest
+
+## For BW apps running in BW6 AppSpace
+
+To enable Prometheus monitoring for an appnode follow the below steps:
+* Set BW_PROMETHEUS_ENABLE environment variable to TRUE. Add below line in <BW_HOME>/bin/bwcommon.tra file <br/>
+  * tibco.env.BW_PROMETHEUS_ENABLE=true
+* Add prometheus-integration.jar in <BW_HOME>/system/hotfix/shared folder.
+* Start the appnode. It will start pushing data at http://localhost:9095/
+* Download standalone Prometheus server: https://prometheus.io/download/ and use below commands to install it in Linux: <br />
+  * tar xvfz prometheus-*.tar.gz <br />
+  * cd prometheus-* <br />
+For other OS check steps here: https://prometheus.io/docs/introduction/first_steps/ <br />
+* Update prometheus.yml file, set target as localhost:9095 and start the Prometheus server using below command: <br />
+  * ./prometheus --config.file=prometheus.yml`
+* Check http://localhost:9090 for Prometheus metrics
+
 
 ## Grafana Integration to Prometheus
 
