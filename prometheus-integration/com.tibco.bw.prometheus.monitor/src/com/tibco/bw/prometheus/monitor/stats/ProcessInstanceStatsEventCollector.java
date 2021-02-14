@@ -48,7 +48,6 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 
 	private static List<Sample> processSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
 	private static List<Sample> processCounterSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
-	private static List<Sample> processCounterDurationSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
     
 	static Map<String,Integer> processStateCounterMap = new HashMap<String,Integer>();
 	static {
@@ -58,11 +57,14 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		processStateCounterMap.put(State.CANCELLED.name(), 0);
 	}
 	
-	static Map<String, HashMap<String, Integer>> processCounterMap = new HashMap<String,HashMap<String,Integer>>();
+	static Map<String, ConcurrentHashMap<String, Integer>> processCounterMap = new ConcurrentHashMap<String,ConcurrentHashMap<String,Integer>>();
 	
+	static Map<String, ConcurrentHashMap<String, Double>> processDurationMap = new ConcurrentHashMap<String,ConcurrentHashMap<String,Double>>();
 	
 	@Override
 	public void handleEvent(final Event event) {
+		
+		if(config.isPrometheusEnabled()){
 		if (logger.isDebugEnabled()) {
 			logger.debug("Event Received. Event = {"+ event.toString() + "}");
 		}
@@ -79,7 +81,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		
 		if (State.STARTED == processEvent.getProcessInstanceState()) {
 
-			Map<String, Object> processStatMap = new HashMap<String, Object>();
+			Map<String, Object> processStatMap = new ConcurrentHashMap<String, Object>();
 			for (String propName : event.getPropertyNames()) {
 				processStatMap.put(propName, event.getProperty(propName));
 			}
@@ -94,7 +96,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		} else if (State.COMPLETED == processEvent.getProcessInstanceState()
 				|| State.FAULTED == processEvent.getProcessInstanceState()
 				|| State.CANCELLED == processEvent.getProcessInstanceState()) {
-			Map<String, Object> processStatMap = new HashMap<String, Object>();
+			Map<String, Object> processStatMap = new ConcurrentHashMap<String, Object>();
 			processStatMap.put(STATUS_PROPERTY, processEvent.getProcessInstanceState().name());
 			if (null == statMaps.get(pId)) {
 				processStatMap.put(EVAL_TIME_PROPERTY, "null");
@@ -105,9 +107,10 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 					logger.debug("Statistics collected for process instance {" + pId + "}");
 				}
 				processStatMap = statMaps.remove(pId);
-				addStatsToMetrics(processStatMap, processEvent);
+				addStatsToMetrics(processStatMap, processEvent);	
 			}
-		}		
+		}
+		}
 	}
 
 	private List<String> getProcessStateCounterList(
@@ -134,9 +137,13 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 	
 	
 	private void updateProcessCounter(ProcessAuditEvent audit) {
-		HashMap<String, Integer> map = processCounterMap.get(audit.getProcessName());
+		ConcurrentHashMap<String, Integer> map = processCounterMap.get(audit.getProcessName());
 		if(map == null){
-			map = new HashMap<String,Integer>();
+			map = new ConcurrentHashMap<String,Integer>();
+			map.put(State.STARTED.name(), 0);
+			map.put(State.COMPLETED.name(), 0);
+			map.put(State.FAULTED.name(), 0);
+			map.put(State.CANCELLED.name(), 0);
 		}
 		
 		Integer value = map.get(audit.getProcessInstanceState().name());
@@ -173,18 +180,22 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 			pis.setParentProcessInstanceId(event.getParentProcessInstanceId());
 		}
 		pis.setProcessInstanceId(event.getProcessInstanceId());
+		pis.setProcessInstanceState(event.getProcessInstanceState().name());
 		if (State.STARTED == event.getProcessInstanceState()) {
 			pis.setProcessInstanceStartTime(Utils.convertTimeToString(event.getProcessInstanceStartTime()));
 			pis.setProcessInstanceEndTime(Utils.convertTimeToString((Long) pStatMap.get(END_TIME_PROPERTY)));
-			pis.setProcessInstanceDurationTime((Long) pStatMap.get(END_TIME_PROPERTY) - event.getProcessInstanceEndTime());
+			if(event.getProcessInstanceEndTime() != null){
+				pis.setProcessInstanceDurationTime((Long) pStatMap.get(END_TIME_PROPERTY) - event.getProcessInstanceEndTime());
+			}
 		} else if (State.COMPLETED == event.getProcessInstanceState()
 				|| State.FAULTED == event.getProcessInstanceState()
 				|| State.CANCELLED == event.getProcessInstanceState()) {
 			pis.setProcessInstanceStartTime(Utils.convertTimeToString((Long) pStatMap.get(START_TIME_PROPERTY)));
 			pis.setProcessInstanceEndTime(Utils.convertTimeToString(event.getProcessInstanceEndTime()));
 			pis.setProcessInstanceDurationTime((event.getProcessInstanceEndTime() - (Long) pStatMap.get(START_TIME_PROPERTY)));
+			updateProcessDurationCounter(pis);
 		}
-		pis.setProcessInstanceState(event.getProcessInstanceState().name());
+		
 		if (deploymentInfo.isBWCE()) {
 			String containerName = deploymentInfo.getContainerName();
 			if (containerName != null) {
@@ -221,6 +232,24 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		}
 	}
 	
+	private void updateProcessDurationCounter(ProcessStats pis) {
+		
+		ConcurrentHashMap<String, Double> values = processDurationMap.get(pis.getProcessName());
+		if(values == null){
+			values = new ConcurrentHashMap<String,Double>();
+		}
+		
+		Double value = values.get(pis.getProcessInstanceState());
+		if(value == null){
+			value = 0d;
+		}
+		
+		values.put(pis.getProcessInstanceState(), value + (double)pis.getProcessInstanceDurationTime());
+		
+		processDurationMap.put(pis.getProcessName(), values);
+		
+	}
+
 	public static List<MetricFamilySamples> getCollection() {
 		
 		
@@ -256,12 +285,22 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 			}
 		}
 		
+			CounterMetricFamily processDurationEventCounter = new CounterMetricFamily("process_duration_seconds_total", "BWCE Process Events duration by Process in seconds",Arrays.asList("ProcessName","StateName"));
+			CounterMetricFamily processMsecDurationEventCounter = new CounterMetricFamily("process_duration_milliseconds_total", "BWCE Process Events duration by Process in milliseconds",Arrays.asList("ProcessName","StateName"));
+			for(String entry : processDurationMap.keySet()){
+				for(String state : processDurationMap.get(entry).keySet()){
+					processDurationEventCounter.addMetric(Arrays.asList(entry,state) ,  (double)processDurationMap.get(entry).get(state) / 1000);
+					processMsecDurationEventCounter.addMetric(Arrays.asList(entry,state) ,  (double)processDurationMap.get(entry).get(state));	
+				}
+			}
 		
 		List<MetricFamilySamples> mfs = new ArrayList<>();
 		mfs.add(processMFS);
 		mfs.add(processCountersMFS);
 		mfs.add(allProcessEventCounter);
 		mfs.add(processEventCounter);
+		mfs.add(processDurationEventCounter);
+		mfs.add(processMsecDurationEventCounter);
 		return mfs;
 	}
 	
