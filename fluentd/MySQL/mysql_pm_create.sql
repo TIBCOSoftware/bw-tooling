@@ -4,7 +4,7 @@
 --
 
 CREATE TABLE IF NOT EXISTS ActivityLoggingStats (
-	activityInstanceUID VARCHAR(40) NOT NULL,
+    activityInstanceUID VARCHAR(40) NOT NULL,
     timestmp bigint DEFAULT NULL,
     applicationName varchar(1000) DEFAULT NULL,
     applicationVersion varchar(1000) DEFAULT NULL,
@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS ActivityLoggingStats (
     domainName varchar(1000) DEFAULT NULL,
     appspaceName varchar(1000) DEFAULT NULL,
     appnodeName varchar(1000) DEFAULT NULL,
-	activityInput text DEFAULT NULL,
-	activityOutput text DEFAULT NULL,
-	activityExecutionId varchar(45) DEFAULT NULL,
+    activityInput text DEFAULT NULL,
+    activityOutput text DEFAULT NULL,
+    activityExecutionId varchar(45) DEFAULT NULL,
     PRIMARY KEY (activityInstanceUID)
 );
 
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS ActivityLoggingStats (
 --
 
 CREATE TABLE IF NOT EXISTS ProcessInstanceLoggingStats (
-	processInstanceUID VARCHAR(40) NOT NULL,
+    processInstanceUID VARCHAR(40) NOT NULL,
     timestmp bigint DEFAULT NULL,
     applicationName varchar(1000) DEFAULT NULL,
     applicationVersion varchar(1000) DEFAULT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS ProcessInstanceLoggingStats (
     domainName varchar(1000) DEFAULT NULL,
     appspaceName varchar(1000) DEFAULT NULL,
     appnodeName varchar(1000) DEFAULT NULL,
-	activityExecutionId varchar(45) DEFAULT NULL,
+    activityExecutionId varchar(45) DEFAULT NULL,
     PRIMARY KEY (processInstanceUID)
 );
 
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS ProcessInstanceLoggingStats (
 --
 
 CREATE TABLE IF NOT EXISTS TransitionLoggingStats (
-	transitionInstanceUID VARCHAR(40) NOT NULL,
+    transitionInstanceUID VARCHAR(40) NOT NULL,
     timestmp bigint DEFAULT NULL,
     applicationName varchar(1000) DEFAULT NULL,
     applicationVersion varchar(1000) DEFAULT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS TransitionLoggingStats (
     componentProcessName varchar(1000) DEFAULT NULL,
     processName varchar(1000) DEFAULT NULL,
     processInstanceId varchar(45) DEFAULT NULL,
-	transitionName varchar(1000) DEFAULT NULL,
+    transitionName varchar(1000) DEFAULT NULL,
     domainName varchar(1000) DEFAULT NULL,
     appspaceName varchar(1000) DEFAULT NULL,
     appnodeName varchar(1000) DEFAULT NULL,
