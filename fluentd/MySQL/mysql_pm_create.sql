@@ -1,77 +1,73 @@
-
 --
--- Table structure for table ActivityLoggingStats
+-- Table structure for table activityloggingstats
 --
-
-CREATE TABLE IF NOT EXISTS ActivityLoggingStats (
-    activityInstanceUID VARCHAR(40) NOT NULL,
-    timestmp bigint DEFAULT NULL,
-    applicationName varchar(1000) DEFAULT NULL,
-    applicationVersion varchar(1000) DEFAULT NULL,
-    moduleName varchar(1000) DEFAULT NULL,
-    moduleVersion varchar(1000) DEFAULT NULL,
-    processName varchar(1000) DEFAULT NULL,
-    processInstanceId varchar(45) DEFAULT NULL,
-    activityName varchar(100) DEFAULT NULL,
-    activityStartTime bigint DEFAULT NULL,
-    activityDurationTime bigint DEFAULT NULL,
-    activityEvalTime bigint DEFAULT NULL,
-    activityState varchar(45) DEFAULT NULL,
-    domainName varchar(1000) DEFAULT NULL,
-    appspaceName varchar(1000) DEFAULT NULL,
-    appnodeName varchar(1000) DEFAULT NULL,
-    activityInput text DEFAULT NULL,
-    activityOutput text DEFAULT NULL,
-    activityExecutionId varchar(45) DEFAULT NULL,
-    PRIMARY KEY (activityInstanceUID)
+CREATE TABLE IF NOT EXISTS activityloggingstats(
+	activityinstanceuid varchar(255) NOT NULL,   -- primary key column
+	timestmp bigint NULL,
+	applicationname varchar(255) NULL,
+	applicationversion varchar(255) NULL,
+	modulename varchar(255) NULL,
+	moduleversion varchar(255) NULL,
+	processname varchar(255) NULL,
+	processinstanceid varchar(255) NULL,
+	activityname varchar(255) NULL,
+	activitystarttime bigint NULL,
+	activitydurationtime bigint NULL,
+	activityevaltime bigint NULL,
+	activitystate varchar(255) NULL,
+	domainname varchar(255) NULL,
+	appspacename varchar(255) NULL,
+	appnodename varchar(255) NULL,
+	activityinput text,
+	activityoutput text,
+	activityexecutionid varchar(255) NULL,
+	PRIMARY KEY (activityinstanceuid)
 );
 
 --
--- Table structure for table ProcessInstanceLoggingStats
+-- Table structure for table processinstanceloggingstats
 --
-
-CREATE TABLE IF NOT EXISTS ProcessInstanceLoggingStats (
-    processInstanceUID VARCHAR(40) NOT NULL,
-    timestmp bigint DEFAULT NULL,
-    applicationName varchar(1000) DEFAULT NULL,
-    applicationVersion varchar(1000) DEFAULT NULL,
-    moduleName varchar(1000) DEFAULT NULL,
-    moduleVersion varchar(1000) DEFAULT NULL,
-    componentProcessName varchar(1000) DEFAULT NULL,
-    processInstanceJobId varchar(45) DEFAULT NULL,
-    parentProcessName varchar(1000) DEFAULT NULL,
-    parentProcessInstanceId varchar(45) DEFAULT NULL,
-    processName varchar(1000) DEFAULT NULL,
-    processInstanceId varchar(45) DEFAULT NULL,
-    processInstanceStartTime bigint DEFAULT NULL,
-    processInstanceEndTime bigint DEFAULT NULL,
-    processInstanceDurationTime bigint DEFAULT NULL,
-    processInstanceEvalTime bigint DEFAULT NULL,
-    processInstanceState varchar(45) DEFAULT NULL,
-    domainName varchar(1000) DEFAULT NULL,
-    appspaceName varchar(1000) DEFAULT NULL,
-    appnodeName varchar(1000) DEFAULT NULL,
-    activityExecutionId varchar(45) DEFAULT NULL,
-    PRIMARY KEY (processInstanceUID)
+CREATE TABLE IF NOT EXISTS processinstanceloggingstats(
+	processinstanceuid varchar(255) NOT NULL,  -- primary key column
+	timestmp bigint NULL,
+	applicationname varchar(255) NULL,
+	applicationversion varchar(255) NULL,
+	modulename varchar(255) NULL,
+	moduleversion varchar(255) NULL,
+	componentprocessname varchar(255) NULL,
+	processinstancejobid varchar(255) NULL,
+	parentprocessname varchar(255) NULL,
+	parentprocessinstanceid varchar(255) NULL,
+	processname varchar(255) NULL,
+	processinstanceid varchar(255) NULL,
+	processinstancestarttime bigint NULL,
+	processinstanceendtime bigint NULL,
+	processinstancedurationtime bigint NULL,
+	processinstanceevaltime bigint NULL,
+	processinstancestate varchar(255) NULL,
+	domainname varchar(255) NULL,
+	appspacename varchar(255) NULL,
+	appnodename varchar(255) NULL,
+	activityexecutionid varchar(255) NULL,
+	PRIMARY KEY (processinstanceuid)
 );
 
 --
--- Table structure for table TransitionLoggingStats
+-- Table structure for table transitionloggingstats
 --
-
-CREATE TABLE IF NOT EXISTS TransitionLoggingStats (
-    transitionInstanceUID VARCHAR(40) NOT NULL,
-    timestmp bigint DEFAULT NULL,
-    applicationName varchar(1000) DEFAULT NULL,
-    applicationVersion varchar(1000) DEFAULT NULL,
-    moduleName varchar(1000) DEFAULT NULL,
-    moduleVersion varchar(1000) DEFAULT NULL,
-    componentProcessName varchar(1000) DEFAULT NULL,
-    processName varchar(1000) DEFAULT NULL,
-    processInstanceId varchar(45) DEFAULT NULL,
-    transitionName varchar(1000) DEFAULT NULL,
-    domainName varchar(1000) DEFAULT NULL,
-    appspaceName varchar(1000) DEFAULT NULL,
-    appnodeName varchar(1000) DEFAULT NULL,
-    PRIMARY KEY (transitionInstanceUID)
+CREATE TABLE IF NOT EXISTS transitionloggingstats(
+	transitioninstanceuid varchar(255) NOT NULL,  -- primary key column
+	timestmp bigint NULL,
+	applicationname varchar(255) NULL,
+	applicationversion varchar(255) NULL,
+	modulename varchar(255) NULL,
+	moduleversion varchar(255) NULL,
+	componentprocessname varchar(255) NULL,
+	processname varchar(255) NULL,
+	processinstanceid varchar(255) NULL,
+	transitionname varchar(255) NULL,
+	domainname varchar(255) NULL,
+	appspacename varchar(255) NULL,
+	appnodename varchar(255) NULL,
+	PRIMARY KEY (transitioninstanceuid)
 );
