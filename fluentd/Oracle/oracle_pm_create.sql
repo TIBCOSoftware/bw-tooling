@@ -1,35 +1,33 @@
 --
--- Table structure for Process Monitoring
+-- Table structure for BWCE Monitoring Data
 --
 BEGIN
 BEGIN
 BEGIN
-
 --
--- Table structure for table ActivityLoggingStats
+-- Table structure for table activityloggingstats
 --
-
-  EXECUTE IMMEDIATE 'CREATE TABLE ActivityLoggingStats (
-    activityInstanceUID varchar(40) NOT NULL,
-    timestmp NUMBER(19,0) DEFAULT NULL,
-    applicationName varchar(1000) DEFAULT NULL,
-    applicationVersion varchar(1000) DEFAULT NULL,
-    moduleName varchar(1000) DEFAULT NULL,
-    moduleVersion varchar(1000) DEFAULT NULL,
-    processName varchar(1000) DEFAULT NULL,
-    processInstanceId varchar(45) DEFAULT NULL,
-    activityName varchar(100) DEFAULT NULL,
-    activityStartTime NUMBER(19,0) DEFAULT NULL,
-    activityDurationTime NUMBER(19,0) DEFAULT NULL,
-    activityEvalTime NUMBER(19,0) DEFAULT NULL,
-    activityState varchar(45) DEFAULT NULL,
-    domainName varchar(1000) DEFAULT NULL,
-    appspaceName varchar(1000) DEFAULT NULL,
-    appnodeName varchar(1000) DEFAULT NULL,
-	activityInput CLOB DEFAULT NULL,
-	activityOutput CLOB DEFAULT NULL,
-	activityExecutionId varchar(45) DEFAULT NULL,
-    PRIMARY KEY (activityInstanceUID)
+  EXECUTE IMMEDIATE 'CREATE TABLE activityloggingstats (
+    activityinstanceuid varchar(255) NOT NULL,
+    timestmp NUMBER(19,0) NULL,
+    applicationname varchar(255) NULL,
+    applicationversion varchar(255) NULL,
+    modulename varchar(255) NULL,
+    moduleversion varchar(255) NULL,
+    processname varchar(255) NULL,
+    processinstanceid varchar(255) NULL,
+    activityname varchar(255) NULL,
+    activitystarttime NUMBER(19,0) NULL,
+    activitydurationtime NUMBER(19,0) NULL,
+    activityevaltime NUMBER(19,0) NULL,
+    activitystate varchar(255) NULL,
+    domainname varchar(255) NULL,
+    appspacename varchar(255) NULL,
+    appnodename varchar(255) NULL,
+    activityinput CLOB NULL,
+    activityoutput CLOB NULL,
+    activityexecutionid varchar(255) NULL,
+    PRIMARY KEY (activityinstanceuid)
 )' ;
 EXCEPTION
   WHEN OTHERS THEN
@@ -37,35 +35,32 @@ EXCEPTION
       RAISE;
     END IF;
 END;
-
-
 --
--- Table structure for table ProcessInstanceLoggingStats
+-- Table structure for table processinstanceloggingstats
 --
-
-  EXECUTE IMMEDIATE 'CREATE TABLE ProcessInstanceLoggingStats (
-    processInstanceUID varchar(40) NOT NULL,
-    timestmp NUMBER(19,0) DEFAULT NULL,
-    applicationName varchar(1000) DEFAULT NULL,
-    applicationVersion varchar(1000) DEFAULT NULL,
-    moduleName varchar(1000) DEFAULT NULL,
-    moduleVersion varchar(1000) DEFAULT NULL,
-    componentProcessName varchar(1000) DEFAULT NULL,
-    processInstanceJobId varchar(45) DEFAULT NULL,
-    parentProcessName varchar(1000) DEFAULT NULL,
-    parentProcessInstanceId varchar(45) DEFAULT NULL,
-    processName varchar(1000) DEFAULT NULL,
-    processInstanceId varchar(45) DEFAULT NULL,
-    processInstanceStartTime NUMBER(19,0) DEFAULT NULL,
-    processInstanceEndTime NUMBER(19,0) DEFAULT NULL,
-    processInstanceDurationTime NUMBER(19,0) DEFAULT NULL,
-    processInstanceEvalTime NUMBER(19,0) DEFAULT NULL,
-    processInstanceState varchar(45) DEFAULT NULL,
-    domainName varchar(1000) DEFAULT NULL,
-    appspaceName varchar(1000) DEFAULT NULL,
-    appnodeName varchar(1000) DEFAULT NULL,
-	activityExecutionId varchar(45) DEFAULT NULL,
-    PRIMARY KEY (processInstanceUID)
+  EXECUTE IMMEDIATE 'CREATE TABLE processinstanceloggingstats (
+    processinstanceuid varchar(255) NOT NULL,
+    timestmp NUMBER(19,0) NULL,
+    applicationname varchar(255) NULL,
+    applicationversion varchar(255) NULL,
+    modulename varchar(255) NULL,
+    moduleversion varchar(255) NULL,
+    componentprocessname varchar(255) NULL,
+    processinstancejobid varchar(255) NULL,
+    parentprocessname varchar(255) NULL,
+    parentprocessinstanceid varchar(255) NULL,
+    processname varchar(255) NULL,
+    processinstanceid varchar(255) NULL,
+    processinstancestarttime NUMBER(19,0) NULL,
+    processinstanceendtime NUMBER(19,0) NULL,
+    processinstancedurationtime NUMBER(19,0) NULL,
+    processinstanceevaltime NUMBER(19,0) NULL,
+    processinstancestate varchar(255) NULL,
+    domainname varchar(255) NULL,
+    appspacename varchar(255) NULL,
+    appnodename varchar(255) NULL,
+    activityexecutionid varchar(255) NULL,
+    PRIMARY KEY (processinstanceuid)
 )' ;
 EXCEPTION
   WHEN OTHERS THEN
@@ -73,26 +68,24 @@ EXCEPTION
       RAISE;
     END IF;
 END;
-
 --
--- Table structure for table TransitionLoggingStats
+-- Table structure for table transitionloggingstats
 --
-
-  EXECUTE IMMEDIATE 'CREATE TABLE TransitionLoggingStats (
-    transitionInstanceUID varchar(40) NOT NULL,
-    timestmp NUMBER(19,0) DEFAULT NULL,
-    applicationName varchar(1000) DEFAULT NULL,
-    applicationVersion varchar(1000) DEFAULT NULL,
-    moduleName varchar(1000) DEFAULT NULL,
-    moduleVersion varchar(1000) DEFAULT NULL,
-    componentProcessName varchar(1000) DEFAULT NULL,
-    processName varchar(1000) DEFAULT NULL,
-	processInstanceId varchar(45) DEFAULT NULL,
-    transitionName varchar(1000) DEFAULT NULL,
-    domainName varchar(1000) DEFAULT NULL,
-    appspaceName varchar(1000) DEFAULT NULL,
-    appnodeName varchar(1000) DEFAULT NULL,
-    PRIMARY KEY (transitionInstanceUID)
+  EXECUTE IMMEDIATE 'CREATE TABLE transitionloggingstats (
+    transitioninstanceuid varchar(255) NOT NULL,
+    timestmp NUMBER(19,0) NULL,
+    applicationname varchar(255) NULL,
+    applicationversion varchar(255) NULL,
+    modulename varchar(255) NULL,
+    moduleversion varchar(255) NULL,
+    componentprocessname varchar(255) NULL,
+    processname varchar(255) NULL,
+    processinstanceid varchar(255) NULL,
+    transitionname varchar(255) NULL,
+    domainname varchar(255) NULL,
+    appspacename varchar(255) NULL,
+    appnodename varchar(255) NULL,
+    PRIMARY KEY (transitioninstanceuid)
 )' ;
 EXCEPTION
   WHEN OTHERS THEN
