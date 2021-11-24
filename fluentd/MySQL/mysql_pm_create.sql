@@ -1,7 +1,7 @@
 --
 -- Table structure for table activityloggingstats
 --
-CREATE TABLE IF NOT EXISTS activityloggingstats(
+CREATE TABLE IF NOT EXISTS ActivityLoggingStats(
 	activityinstanceuid varchar(255) NOT NULL,   -- primary key column
 	timestmp bigint NULL,
 	applicationname varchar(255) NULL,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS activityloggingstats(
 --
 -- Table structure for table processinstanceloggingstats
 --
-CREATE TABLE IF NOT EXISTS processinstanceloggingstats(
+CREATE TABLE IF NOT EXISTS ProcessInstanceLoggingStats(
 	processinstanceuid varchar(255) NOT NULL,  -- primary key column
 	timestmp bigint NULL,
 	applicationname varchar(255) NULL,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS processinstanceloggingstats(
 --
 -- Table structure for table transitionloggingstats
 --
-CREATE TABLE IF NOT EXISTS transitionloggingstats(
+CREATE TABLE IF NOT EXISTS TransitionLoggingStats(
 	transitioninstanceuid varchar(255) NOT NULL,  -- primary key column
 	timestmp bigint NULL,
 	applicationname varchar(255) NULL,
