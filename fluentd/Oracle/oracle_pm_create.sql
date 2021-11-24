@@ -24,8 +24,8 @@ BEGIN
     domainname varchar(255) NULL,
     appspacename varchar(255) NULL,
     appnodename varchar(255) NULL,
-    activityinput CLOB NULL,
-    activityoutput CLOB NULL,
+    activityinput varchar(4000) NULL,
+    activityoutput varchar(4000) NULL,
     activityexecutionid varchar(255) NULL,
     PRIMARY KEY (activityinstanceuid)
 )' ;
