@@ -7,6 +7,7 @@ import java.util.Hashtable;
 
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +39,7 @@ public class Activator implements BundleActivator {
 			BWEventHandler handler = new BWEventHandler();
 			properties.put("event.topics" , "com/tibco/audit/*");
 			properties.put("event.type", "bw");
-			context.registerService(BWEventHandler.class.getName(), handler, properties);
+			context.registerService(EventHandler.class.getName(), handler, properties);
 			
 			PrometheusCollector.run();
 		} 
