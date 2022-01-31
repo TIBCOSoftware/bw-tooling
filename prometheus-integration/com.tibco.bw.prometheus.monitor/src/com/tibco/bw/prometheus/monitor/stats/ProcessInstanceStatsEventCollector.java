@@ -265,7 +265,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		return mfs;
 	}
 	
-	public void reset(){
+	public static void reset(){
 		processCounterSampleList.clear();
 		processSampleList.clear();
 	}
