@@ -11,7 +11,7 @@ RUN apt-get install -y make
 RUN apt-get install -y libpq-dev
 RUN gem -v
 RUN ruby -v
-RUN ["gem", "install", "fluent-plugin-sql", "--no-document"]
+RUN ["gem", "install", "fluent-plugin-sql", "--no-document", "-v", "2.3.0"]
 RUN ["gem", "install", "pg", "-v", "1.1"]
-RUN ["gem", "install", "fluent-plugin-postgres"]
+RUN ["gem", "install", "fluent-plugin-postgres", "-v", "0.1.0"]
 COPY config /fluentd/etc
