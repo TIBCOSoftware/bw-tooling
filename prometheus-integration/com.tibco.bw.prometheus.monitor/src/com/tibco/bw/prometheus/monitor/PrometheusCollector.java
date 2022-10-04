@@ -61,10 +61,12 @@ public class PrometheusCollector extends Collector {
 	}
 
 	@Override
-	public List<MetricFamilySamples> collect() {
+	public List<MetricFamilySamples> collect() {	
 		List<MetricFamilySamples> mfs = new ArrayList<Collector.MetricFamilySamples>();
 		mfs.addAll(ActivityStatsEventCollector.getCollection());
 		mfs.addAll(ProcessInstanceStatsEventCollector.getCollection());
+		ActivityStatsEventCollector.reset();
+		ProcessInstanceStatsEventCollector.reset();
 		return mfs;
 	}
 	

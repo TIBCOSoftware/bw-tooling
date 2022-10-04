@@ -2,9 +2,12 @@
 
 package com.tibco.bw.prometheus.monitor;
 
+import java.util.Dictionary;
+import java.util.Hashtable;
+
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
-import org.osgi.framework.ServiceReference;
+import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,15 +34,15 @@ public class Activator implements BundleActivator {
 		
 		if (config.isPrometheusEnabled()) {
 			logger.info("Starting the Prometheus Monitoring Bundle");
+			
+			Dictionary<String, String> properties = new Hashtable<>();
+			BWEventHandler handler = new BWEventHandler();
+			properties.put("event.topics" , "com/tibco/audit/*");
+			properties.put("event.type", "bw");
+			context.registerService(EventHandler.class.getName(), handler, properties);
+			
 			PrometheusCollector.run();
-		} else {
-			// Unregister service
-			logger.info("Prometheus Monitoring Disabled");
-			ServiceReference<BWEventHandler> serviceReference = bundleContext.getServiceReference(BWEventHandler.class);
-			if (serviceReference != null) {
-				context.ungetService(serviceReference);
-			}
-		}
+		} 
 	}
 
 	/*

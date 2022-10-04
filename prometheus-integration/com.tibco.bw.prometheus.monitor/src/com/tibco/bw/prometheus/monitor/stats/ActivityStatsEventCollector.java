@@ -235,5 +235,10 @@ public class ActivityStatsEventCollector implements EventHandler {
 		mfs.add(activityEventCounter);
 		return mfs;
 	}
+	
+	public static void reset(){
+		activityCounterSampleList.clear();
+		activitySampleList.clear();
+	}
 
 }
