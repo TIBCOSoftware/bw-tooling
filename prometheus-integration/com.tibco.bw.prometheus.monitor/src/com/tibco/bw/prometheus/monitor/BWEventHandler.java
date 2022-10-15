@@ -23,10 +23,10 @@ public class BWEventHandler implements EventHandler {
 	public void handleEvent(final Event event) {
 		AuditEvent auditEvent = (AuditEvent) event.getProperty("eventData");
 		if (auditEvent instanceof ProcessAuditEvent) {
-			logger.info("Prometheus : BW Process Event Received");
+			logger.debug("Prometheus : BW Process Event Received");
 			processInstanceStatsEventCollector.handleEvent(event);
 		} else if (auditEvent instanceof ActivityAuditEvent) {
-			logger.info("Prometheus : BW Audit Event Received");
+			logger.debug("Prometheus : BW Audit Event Received");
 			activityStatEventCollector.handleEvent(event);
 		} 
 	}

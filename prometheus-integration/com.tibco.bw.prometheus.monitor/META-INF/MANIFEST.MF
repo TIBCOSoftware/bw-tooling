@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Prometheus Monitoring for BW application
 Bundle-SymbolicName: com.tibco.bw.prometheus.monitor
-Bundle-Version: 1.0.0.qualifier
+Bundle-Version: 1.0.3.qualifier
 Bundle-ClassPath: .,
  lib/simpleclient-0.5.0.jar,
  lib/simpleclient_hotspot-0.5.0.jar,

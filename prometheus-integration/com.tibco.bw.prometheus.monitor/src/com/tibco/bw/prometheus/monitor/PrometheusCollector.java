@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import javax.xml.namespace.QName;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
@@ -33,7 +32,6 @@ public class PrometheusCollector extends Collector {
 	public static HTTPServer server;
 	private final static InetSocketAddress DEFAULT_PROMETHEUS_MONITOR_PORT = new InetSocketAddress(9095);
 	
-	private static final QName HTTPCONNECTOR_TYPE = new QName("http://xsd.tns.tibco.com/bw/models/sharedresource/httpconnector","HttpConnectorConfiguration");
 	private final static CountDownLatch proxyInitLatch = new CountDownLatch(1);
 	private static final String APPLICATION_NAME = "application_name";
 	
@@ -78,7 +76,7 @@ public class PrometheusCollector extends Collector {
 		tracker.open();
 		if (tracker.getServiceReferences() != null) {
 			for (ServiceReference<ResourceReference> serviceRef : tracker.getServiceReferences()) {
-				if (serviceRef != null && serviceRef.getProperty(".type").equals(HTTPCONNECTOR_TYPE.toString())) {
+				if (serviceRef != null && serviceRef.getProperty(".type").equals("{http://xsd.tns.tibco.com/bw/models/sharedresource/httpconnector}HttpConnectorConfiguration")) {
 					ResourceReference reference = tracker.getService(serviceRef);
 					if (reference != null) {
 						HttpConnector connector = (HttpConnector) reference.getResource();
