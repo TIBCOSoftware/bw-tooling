@@ -12,17 +12,18 @@ public class ConfigurationManager {
 	
 	private static final String BW_PROMETHEUS_ENABLE = "BW_PROMETHEUS_ENABLE";
 	private  static final String BW_PROMETHEUS_DETAILS_ENABLE = "BW_PROMETHEUS_DETAILS_ENABLE";
+	private  static final String BW_PROMETHEUS_ACTIVITY_ENABLE = "BW_PROMETHEUS_ACTIVITY_ENABLE";
+	private  static final String BW_PROMETHEUS_PROMETHEUS_PORT = "BW_PROMETHEUS_PROMETHEUS_PORT";
 	
 	
 	private boolean isPrometheusEnabled = false;
 	private boolean isActivityDetailedEnabled = true;
 	private boolean isProcessDetailedEnabled = true;
-	
+	private boolean isActivityEnabled = true;
+	private int prometheusPort = 9095;
 	
 	private ConfigurationManager(){
-		init();
-		
-		
+		init();		
 	}
 	
 	private void init() {
@@ -35,9 +36,36 @@ public class ConfigurationManager {
 			isProcessDetailedEnabled = false;
 		}
 		
-		logger.warn("isPrometheusEnabled: "+isPrometheusEnabled);
-		logger.warn("isProcessDetailedEnabled: "+isProcessDetailedEnabled);
-		logger.warn("isActivityDetailedEnabled: "+isActivityDetailedEnabled);
+		if ((System.getenv(BW_PROMETHEUS_ACTIVITY_ENABLE) != null && System.getenv(BW_PROMETHEUS_ACTIVITY_ENABLE).equalsIgnoreCase("false")) || (System.getProperty(BW_PROMETHEUS_ACTIVITY_ENABLE) != null && System.getProperty(BW_PROMETHEUS_ACTIVITY_ENABLE).equalsIgnoreCase("false"))) {
+			isActivityDetailedEnabled = false;
+			isActivityEnabled = false;
+		}
+		
+		try {
+			if (System.getenv(BW_PROMETHEUS_PROMETHEUS_PORT) != null){
+				prometheusPort = Integer.parseInt(System.getenv(BW_PROMETHEUS_PROMETHEUS_PORT));
+				
+			}
+			
+			if (System.getProperty(BW_PROMETHEUS_PROMETHEUS_PORT) != null){
+				prometheusPort = Integer.parseInt(System.getProperty(BW_PROMETHEUS_PROMETHEUS_PORT));
+				
+			}
+		}catch(NumberFormatException ex ) {
+			if(logger.isWarnEnabled()) {
+				logger.warn("Prometheus port will be established as :"+prometheusPort);
+			}
+		}
+		
+
+		if (logger.isDebugEnabled()) {
+			logger.debug("isPrometheusEnabled: "+isPrometheusEnabled);
+			logger.debug("isProcessDetailedEnabled: "+isProcessDetailedEnabled);
+			logger.debug("isActivityDetailedEnabled: "+isActivityDetailedEnabled);
+			logger.debug("isActivityEnabled: "+isActivityEnabled);
+		}
+		
+
 		
 	}
 
@@ -76,7 +104,20 @@ public class ConfigurationManager {
 	public void setProcessDetailedEnabled(boolean isProcessDetailedEnabled) {
 		this.isProcessDetailedEnabled = isProcessDetailedEnabled;
 	}
-	
+
+	public boolean isActivityEnabled() {
+		return isActivityEnabled;
+	}
+
+	public void setActivityEnabled(boolean isActivityEnabled) {
+		this.isActivityEnabled = isActivityEnabled;
+	}
+
+	public int getPrometheusPort() {
+		return prometheusPort;
+	}
+
+
 	
 	
 

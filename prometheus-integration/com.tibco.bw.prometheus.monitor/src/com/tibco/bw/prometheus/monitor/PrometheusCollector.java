@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import javax.xml.namespace.QName;
 
 import org.osgi.framework.ServiceReference;
 import org.osgi.util.tracker.ServiceTracker;
@@ -31,9 +30,8 @@ import com.tibco.neo.exception.BaseException;
 public class PrometheusCollector extends Collector {
 	private static Logger logger = LoggerFactory.getLogger(PrometheusCollector.class);
 	public static HTTPServer server;
-	private final static InetSocketAddress DEFAULT_PROMETHEUS_MONITOR_PORT = new InetSocketAddress(9095);
+	private final static InetSocketAddress PROMETHEUS_MONITOR_PORT = new InetSocketAddress(ConfigurationManager.getInstance().getPrometheusPort());
 	
-	private static final QName HTTPCONNECTOR_TYPE = new QName("http://xsd.tns.tibco.com/bw/models/sharedresource/httpconnector","HttpConnectorConfiguration");
 	private final static CountDownLatch proxyInitLatch = new CountDownLatch(1);
 	private static final String APPLICATION_NAME = "application_name";
 	
@@ -42,7 +40,7 @@ public class PrometheusCollector extends Collector {
 		try {
 			CollectorRegistry cr = CollectorRegistry.defaultRegistry;
 			cr.register(new PrometheusCollector());
-			server = new HTTPServer(DEFAULT_PROMETHEUS_MONITOR_PORT, cr);	
+			server = new HTTPServer(PROMETHEUS_MONITOR_PORT, cr);	
 			DefaultExports.initialize();
 			
 			if (Utils.isPCF()) {
@@ -63,10 +61,6 @@ public class PrometheusCollector extends Collector {
 	@Override
 	public List<MetricFamilySamples> collect() {	
 		List<MetricFamilySamples> mfs = new ArrayList<Collector.MetricFamilySamples>();
-		mfs.addAll(ActivityStatsEventCollector.getCollection());
-		mfs.addAll(ProcessInstanceStatsEventCollector.getCollection());
-		ActivityStatsEventCollector.reset();
-		ProcessInstanceStatsEventCollector.reset();
 		return mfs;
 	}
 	
@@ -78,13 +72,13 @@ public class PrometheusCollector extends Collector {
 		tracker.open();
 		if (tracker.getServiceReferences() != null) {
 			for (ServiceReference<ResourceReference> serviceRef : tracker.getServiceReferences()) {
-				if (serviceRef != null && serviceRef.getProperty(".type").equals(HTTPCONNECTOR_TYPE.toString())) {
+				if (serviceRef != null && serviceRef.getProperty(".type").equals("{http://xsd.tns.tibco.com/bw/models/sharedresource/httpconnector}HttpConnectorConfiguration")) {
 					ResourceReference reference = tracker.getService(serviceRef);
 					if (reference != null) {
 						HttpConnector connector = (HttpConnector) reference.getResource();
 						if (connector != null) {
 							HashMap<String, String> initParams = new HashMap<>();
-							initParams.put(ProxyServlet.P_TARGET_URI, "http://localhost:9095/metrics");
+							initParams.put(ProxyServlet.P_TARGET_URI, "http://localhost:"+ConfigurationManager.getInstance().getPrometheusPort()+"/metrics");
 							HttpServletApplicationModel model = new HttpServletApplicationModel("/metrics", "/*", APPLICATION_NAME, initParams, new ProxyServlet(proxyInitLatch));
 							connector.deployServletApplication(model);
 							logger.info("Prometheus : Proxy server created in PCF");
