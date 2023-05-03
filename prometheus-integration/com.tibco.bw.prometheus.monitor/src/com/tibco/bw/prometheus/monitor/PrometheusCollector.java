@@ -31,7 +31,7 @@ import com.tibco.neo.exception.BaseException;
 public class PrometheusCollector extends Collector {
 	private static Logger logger = LoggerFactory.getLogger(PrometheusCollector.class);
 	public static HTTPServer server;
-	private final static InetSocketAddress DEFAULT_PROMETHEUS_MONITOR_PORT = new InetSocketAddress(9095);
+	private final static InetSocketAddress DEFAULT_PROMETHEUS_MONITOR_PORT = new InetSocketAddress("0.0.0.0",9095);
 	
 	private static final QName HTTPCONNECTOR_TYPE = new QName("http://xsd.tns.tibco.com/bw/models/sharedresource/httpconnector","HttpConnectorConfiguration");
 	private final static CountDownLatch proxyInitLatch = new CountDownLatch(1);
