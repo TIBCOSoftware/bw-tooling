@@ -16,6 +16,7 @@ Require-Bundle: com.tibco.bw.thor.management.common
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Bundle-ActivationPolicy: lazy
 Import-Package: .;version="1.0.200",
+ com.tibco.bw.frwk.api;version="[1.0.0,2.0.0)",
  com.tibco.bw.runtime;version="[6.2.100,7.0.0)",
  com.tibco.bw.runtime.event;version="[6.2.100,7.0.0)",
  com.tibco.bw.sharedresource.http.inbound.api;version="6.2.700",
