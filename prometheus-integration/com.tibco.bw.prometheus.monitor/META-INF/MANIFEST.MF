@@ -2,17 +2,18 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Prometheus Monitoring for BW application
 Bundle-SymbolicName: com.tibco.bw.prometheus.monitor
-Bundle-Version: 1.0.0.qualifier
+Bundle-Version: 1.0.3.qualifier
 Bundle-ClassPath: .,
- lib/simpleclient-0.5.0.jar,
- lib/simpleclient_hotspot-0.5.0.jar,
- lib/simpleclient_httpserver-0.5.0.jar,
- lib/simpleclient_common-0.5.0.jar,
- lib/simpleclient_jetty-0.5.0.jar,
- lib/simpleclient_servlet-0.5.0.jar
+ lib/simpleclient-0.16.0.jar,
+ lib/simpleclient_hotspot-0.16.0.jar,
+ lib/simpleclient_httpserver-0.16.0.jar,
+ lib/simpleclient_common-0.16.0.jar,
+ lib/simpleclient_jetty-0.16.0.jar,
+ lib/simpleclient_servlet-0.16.0.jar
 Bundle-Activator: com.tibco.bw.prometheus.monitor.Activator
 Bundle-Vendor: TIBCO Software Inc.
-Require-Bundle: com.tibco.bw.thor.management.common
+Require-Bundle: com.tibco.bw.thor.management.common,
+ com.tibco.bw.frwk.api
 Bundle-RequiredExecutionEnvironment: JavaSE-1.7
 Bundle-ActivationPolicy: lazy
 Import-Package: .;version="1.0.200",

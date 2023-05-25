@@ -37,18 +37,27 @@ public class Activator implements BundleActivator {
 
 		ConfigurationManager config = ConfigurationManager.getInstance(); 
 
-
+		
 		if (config.isPrometheusEnabled()) {
 			logger.info("Starting the Prometheus Monitoring Bundle");
 
-			Dictionary<String, Object> properties = new Hashtable<>();
+
 			String[] processStatsServiceNames = new String[] {EventHandler.class.getName(), ProcessInstanceStatsEventCollector.class.getName()};
-			String[] activityStatsServiceNames = new String[] {EventHandler.class.getName(), ActivityStatsEventCollector.class.getName()};
-			String[] eventTopics = new String[] {AuditEventConstants.PROCESS_INSTANCE_AUDIT_EVENT_TYPE, AuditEventConstants.ACTIVITY_AUDIT_EVENT_TYPE};
-			properties.put(EventConstants.EVENT_TOPIC, eventTopics);
+			String[] processEventTopics = new String[] {AuditEventConstants.PROCESS_INSTANCE_AUDIT_EVENT_TYPE};
+			
+			Dictionary<String, Object> properties = new Hashtable<>();
+			properties.put(EventConstants.EVENT_TOPIC, processEventTopics);
 			properties.put(StatCollectionConstant.BW_EVENT_TYPE_PROPERTY, StatCollectionConstant.BW_EVENT_TYPE_PROPERTY_VALUE);
 			context.registerService(processStatsServiceNames, new ProcessInstanceStatsEventCollector(), properties);
-			context.registerService(activityStatsServiceNames, new ActivityStatsEventCollector(), properties);
+			
+			if(config.isActivityEnabled()) {
+				Dictionary<String, Object> propertiesEvents = new Hashtable<>();
+				String[] activityStatsServiceNames = new String[] {EventHandler.class.getName(), ActivityStatsEventCollector.class.getName()};
+				String[] activityEventTopics = new String[] {AuditEventConstants.ACTIVITY_AUDIT_EVENT_TYPE};
+				propertiesEvents.put(EventConstants.EVENT_TOPIC, activityEventTopics);
+				propertiesEvents.put(StatCollectionConstant.BW_EVENT_TYPE_PROPERTY, StatCollectionConstant.BW_EVENT_TYPE_PROPERTY_VALUE);
+				context.registerService(activityStatsServiceNames, new ActivityStatsEventCollector(), propertiesEvents);
+			}
 
 			PrometheusCollector.run();
 		} 
