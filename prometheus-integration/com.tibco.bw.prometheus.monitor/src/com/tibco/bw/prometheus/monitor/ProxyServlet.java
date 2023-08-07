@@ -438,7 +438,6 @@ public class ProxyServlet extends HttpServlet {
 	protected void copyRequestHeaders(HttpServletRequest servletRequest,
 			HttpRequest proxyRequest) {
 		// Get an Enumeration of all of the header names sent by the client
-		@SuppressWarnings("unchecked")
 		Enumeration<String> enumerationOfHeaderNames = servletRequest
 				.getHeaderNames();
 		while (enumerationOfHeaderNames.hasMoreElements()) {
@@ -461,7 +460,6 @@ public class ProxyServlet extends HttpServlet {
 			return;
 		}
 
-		@SuppressWarnings("unchecked")
 		Enumeration<String> headers = servletRequest.getHeaders(headerName);
 		while (headers.hasMoreElements()) {// sometimes more than one value
 			String headerValue = headers.nextElement();
