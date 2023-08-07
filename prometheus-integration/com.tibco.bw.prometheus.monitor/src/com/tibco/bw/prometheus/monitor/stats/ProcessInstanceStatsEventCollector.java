@@ -18,11 +18,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.stream.Collectors;
-
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventHandler;
 import org.slf4j.Logger;
@@ -48,8 +45,6 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 
 	private static List<Sample> processSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
 	private static List<Sample> processCounterSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
-	private static List<Sample> processCounterDurationSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
-    
 	static Map<String,Integer> processStateCounterMap = new HashMap<String,Integer>();
 	static {
 		processStateCounterMap.put(State.STARTED.name(), 0);
