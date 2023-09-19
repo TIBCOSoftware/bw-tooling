@@ -205,11 +205,17 @@ public class ActivityStatsEventCollector implements EventHandler {
 	}
 	
 	public static List<MetricFamilySamples> getCollection() {
-		MetricFamilySamples activityMFS = new MetricFamilySamples("bwce_activity_stats_list", 
-				Type.GAUGE, "BWCE Activity Statictics list",activitySampleList);
 		
+		List<Sample> copyActivitySampleList = new ArrayList<>();
+		copyActivitySampleList.addAll(activitySampleList);
+		MetricFamilySamples activityMFS = new MetricFamilySamples("bwce_activity_stats_list", 
+				Type.GAUGE, "BWCE Activity Statictics list",copyActivitySampleList);
+		
+		
+		List<Sample> copyActivityCounterSampleList = new ArrayList<>();
+		copyActivityCounterSampleList.addAll(activityCounterSampleList);
 		MetricFamilySamples activityCountersMFS = new MetricFamilySamples("bwce_activity_counter_list", 
-				Type.GAUGE, "BWCE Activity related Counters list",activityCounterSampleList);
+				Type.GAUGE, "BWCE Activity related Counters list",copyActivityCounterSampleList);
 	
 		CounterMetricFamily allActivityEventCounter = new CounterMetricFamily("all_activity_events_count", "BWCE All Activity Events count by State",Arrays.asList("StateName"));
 		allActivityEventCounter.addMetric(Arrays.asList(State.CANCELLED.name()), activityStateCounterMap.get(State.CANCELLED.name()));

@@ -233,7 +233,7 @@ public class ProcessInstanceStatsEventCollector implements EventHandler {
 		copyProcessCounterSampleList.addAll(processCounterSampleList);
 		
 		MetricFamilySamples processCountersMFS = new MetricFamilySamples("bwce_process_counter_list", 
-				Type.GAUGE, "BWCE Process related Counters list", processCounterSampleList);
+				Type.GAUGE, "BWCE Process related Counters list", copyProcessCounterSampleList);
 		
 			
 	
