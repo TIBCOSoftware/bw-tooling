@@ -5,7 +5,7 @@ Prometheus Monitoring for TIBCO BusinessWorks is an open source plug-in for TIBC
 ## Prometheus for Docker
 
 To enable Prometheus monitoring for applications running in Docker follow the below steps:
-* Add JAR of this plugin in addons/jar folder and build the base image (name it as bwce-base).
+* Add JAR of this plugin in /resources/addons/jars folder and build the base image (name it as bwce-base).
 * Expose port 9095 in the all application's Dockerfile where Prometheus monitoring is required.
 * Build the application's docker image using base image created in step 1. (i.e. bwce-base:latest)
 * Set BW_PROMETHEUS_ENABLE environment variable to TRUE while running the Docker image of the application.
