@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- /*Copyright © 2019. TIBCO Software Inc. All Rights Reserved.*/ -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.tibco</groupId>
+	<artifactId>turbine-server</artifactId>
+	<version>2.0.0-SNAPSHOT</version>
+	<packaging>war</packaging>
+	<name>Netflix Turbine</name>
+
+	<properties>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<docker.group.name>tibco</docker.group.name>
+	</properties>
+	
+	<dependencies>
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.netflix.turbine</groupId>
+			<artifactId>turbine-core</artifactId>
+			<version>1.0.0</version>
+		</dependency>
+		<dependency>
+			<groupId>io.fabric8</groupId>
+			<artifactId>openshift-client</artifactId>
+			<version>4.0.3</version>
+		</dependency>
+		<dependency>
+			<groupId>io.fabric8</groupId>
+			<artifactId>kubernetes-client</artifactId>
+			<version>4.0.3</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-war-plugin</artifactId>
+				<version>2.6</version>
+				<configuration>
+					<failOnMissingWebXml>false</failOnMissingWebXml>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>io.fabric8</groupId>
+				<artifactId>docker-maven-plugin</artifactId>
+				<version>0.26.1</version>
+				<configuration>
+				<dockerHost>http://localhost:2375</dockerHost>
+					<images>
+						<image>
+							<name>${docker.group.name}/${project.artifactId}:${project.version}</name>
+							<build>
+								<from>tomcat:8.0.30-jre8</from>
+								<tags>
+									<tag>latest</tag>
+									<tag>${project.version}</tag>
+								</tags>
+								<ports>
+									<port>8080</port>
+								</ports>
+								<runCmds>								
+									<run>rm -rf /usr/local/tomcat/webapps/ROOT</run>
+									<run>rm -rf /usr/local/tomcat/webapps/docs</run>
+									<run>rm -rf /usr/local/tomcat/webapps/examples</run>
+									<run>rm -rf /usr/local/tomcat/webapps/host-manager</run>
+									<run>rm -rf /usr/local/tomcat/webapps/manager</run>
+								</runCmds>								
+								<assembly>
+									<basedir>/usr/local</basedir>
+									<inline>
+										<files>
+											<file>
+												<source>${project.build.directory}/${project.artifactId}-${project.version}.war</source>
+												<outputDirectory>tomcat/webapps/</outputDirectory>
+												<destName>ROOT.war</destName>
+											</file>
+										</files>
+									</inline>
+								</assembly>
+							</build>
+							<run>
+								<ports>
+									<port>http.port:8080</port>
+								</ports>
+							</run>
+						</image>
+					</images>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
