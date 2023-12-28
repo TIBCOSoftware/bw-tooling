@@ -39,7 +39,7 @@ RUN LIBS="*/*" && \
 
 ENV LD_LIBRARY_PATH=/usr/lib
 RUN export LD_BIND_NOW=1
-RUN ["gem", "install", "ruby-oci8"]
-RUN ["gem", "install", "activerecord-oracle_enhanced-adapter"]
-RUN ["gem", "install", "fluent-plugin-sql", "--no-document"]
+RUN ["gem", "install", "ruby-oci8", "-v", "2.2.11"]
+RUN ["gem", "install", "activerecord-oracle_enhanced-adapter","-v","6.1.5"]
+RUN ["gem", "install", "fluent-plugin-sql", "--no-document", "-v", "2.3.0"]
 COPY config /fluentd/etc
