@@ -4,12 +4,14 @@ Bundle-Name: Prometheus Monitoring for BW application
 Bundle-SymbolicName: com.tibco.bw.prometheus.monitor
 Bundle-Version: 1.0.0.qualifier
 Bundle-ClassPath: .,
- lib/simpleclient-0.5.0.jar,
- lib/simpleclient_hotspot-0.5.0.jar,
- lib/simpleclient_httpserver-0.5.0.jar,
- lib/simpleclient_common-0.5.0.jar,
- lib/simpleclient_jetty-0.5.0.jar,
- lib/simpleclient_servlet-0.5.0.jar
+ lib/jetty-server-12.0.5.jar,
+ lib/simpleclient_common-0.16.0.jar,
+ lib/simpleclient_hotspot-0.16.0.jar,
+ lib/simpleclient_httpserver-0.16.0.jar,
+ lib/simpleclient_jetty-0.16.0.jar,
+ lib/simpleclient_servlet-0.16.0.jar,
+ lib/simpleclient-0.16.0.jar,
+ lib/simpleclient_servlet_common-0.16.0.jar
 Bundle-Activator: com.tibco.bw.prometheus.monitor.Activator
 Bundle-Vendor: TIBCO Software Inc.
 Require-Bundle: com.tibco.bw.thor.management.common
@@ -20,11 +22,16 @@ Import-Package: .;version="1.0.200",
  com.tibco.bw.runtime;version="[6.2.100,7.0.0)",
  com.tibco.bw.runtime.event;version="[6.2.100,7.0.0)",
  com.tibco.bw.sharedresource.http.inbound.api;version="6.2.700",
+ com.tibco.bw.sharedresource.http.runtime.montr.dependencies;version="[6.2.100,7.0.0)",
  com.tibco.bw.sharedresource.runtime;version="6.2.700",
  com.tibco.bw.thor.management.common;version="1.4.900",
  com.tibco.bw.thor.management.model.node;version="1.2.900",
  com.tibco.bw.thor.runtime.api;version="1.2.900",
  com.tibco.neo.exception;version="2.6.2",
+ io.micrometer.core.instrument,
+ io.micrometer.core.instrument.binder.jvm,
+ io.micrometer.core.instrument.binder.system,
+ io.micrometer.prometheus,
  javax.servlet;version="2.10.0",
  javax.servlet.http;version="2.10.0",
  org.apache.http;version="4.10.0",
@@ -39,7 +46,11 @@ Import-Package: .;version="1.0.200",
  org.apache.http.impl.client;version="4.10.0",
  org.apache.http.message;version="4.10.0",
  org.apache.http.util;version="4.10.0",
+ org.eclipse.jetty.server;version="[9.0.0,9.9.0)",
+ org.eclipse.jetty.servlet;version="[9.0.0,9.9.0)",
+ org.eclipse.jetty.util.component;version="[9.0.0,9.9.0)",
  org.osgi.framework;version="[1.3.0,2.0.0)",
  org.osgi.service.event;version="[1.3.0,2.0.0)",
  org.osgi.util.tracker;version="1.5.1",
  org.slf4j;version="1.8.0"
+Export-Package: com.tibco.bw.prometheus.monitor.stats
