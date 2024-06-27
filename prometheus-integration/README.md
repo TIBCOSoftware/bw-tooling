@@ -2,6 +2,10 @@
 
 Prometheus Monitoring for TIBCO BusinessWorks is an open source plug-in for TIBCO BusinessWorks. It is designed to monitor JVM, application's activity & process related statistics via [Prometheus](https://prometheus.io).
 
+## Version
+For TIBCO BusinessWorks Container Edition 2.9.0 and prior versions, use the prometheus-integration plugin from branch [2.9.0] (https://github.com/TIBCOSoftware/bw-tooling/tree/2.9.0/prometheus-integration)
+For TIBCO BusinessWorks Container Edition 2.9.1 and later versions, use the prometheus-integration plugin from branch [master] (https://github.com/TIBCOSoftware/bw-tooling/tree/master/prometheus-integration)
+
 ## Prometheus for Docker
 
 To enable Prometheus monitoring for applications running in Docker follow the below steps:
