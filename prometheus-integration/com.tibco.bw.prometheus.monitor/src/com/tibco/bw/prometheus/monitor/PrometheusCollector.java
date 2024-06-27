@@ -3,9 +3,7 @@
 package com.tibco.bw.prometheus.monitor;
 
 import io.prometheus.client.Collector;
-import io.prometheus.client.CollectorRegistry;
 import io.prometheus.client.exporter.HTTPServer;
-import io.prometheus.client.hotspot.DefaultExports;
 
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
@@ -30,8 +28,6 @@ import com.tibco.neo.exception.BaseException;
 
 public class PrometheusCollector extends Collector {
 	private static Logger logger = LoggerFactory.getLogger(PrometheusCollector.class);
-	public static HTTPServer server;
-	private final static InetSocketAddress DEFAULT_PROMETHEUS_MONITOR_PORT = new InetSocketAddress(9095);
 	
 	private static final QName HTTPCONNECTOR_TYPE = new QName("http://xsd.tns.tibco.com/bw/models/sharedresource/httpconnector","HttpConnectorConfiguration");
 	private final static CountDownLatch proxyInitLatch = new CountDownLatch(1);
@@ -40,10 +36,6 @@ public class PrometheusCollector extends Collector {
 	public static void run() {
 		logger.info("Prometheus Collector started");
 		try {
-			CollectorRegistry cr = CollectorRegistry.defaultRegistry;
-			cr.register(new PrometheusCollector());
-			server = new HTTPServer(DEFAULT_PROMETHEUS_MONITOR_PORT, cr);	
-			DefaultExports.initialize();
 			
 			if (Utils.isPCF()) {
 				try {
