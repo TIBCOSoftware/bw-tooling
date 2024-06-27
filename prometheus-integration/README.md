@@ -3,8 +3,8 @@
 Prometheus Monitoring for TIBCO BusinessWorks is an open source plug-in for TIBCO BusinessWorks. It is designed to monitor JVM, application's activity & process related statistics via [Prometheus](https://prometheus.io).
 
 ## Version
-For TIBCO BusinessWorks Container Edition 2.9.0 and prior versions, use the prometheus-integration plugin from branch [2.9.0] (https://github.com/TIBCOSoftware/bw-tooling/tree/2.9.0/prometheus-integration)
-For TIBCO BusinessWorks Container Edition 2.9.1 and later versions, use the prometheus-integration plugin from branch [master] (https://github.com/TIBCOSoftware/bw-tooling/tree/master/prometheus-integration)
+* For TIBCO BusinessWorks Container Edition 2.9.0 and prior versions, use the prometheus-integration plugin from branch [2.3.2](https://github.com/TIBCOSoftware/bw-tooling/tree/2.9.0).
+* For TIBCO BusinessWorks Container Edition 2.9.1 and later versions, use the prometheus-integration plugin from branch [master](https://github.com/TIBCOSoftware/bw-tooling/tree/master).
 
 ## Prometheus for Docker
 
@@ -15,7 +15,9 @@ To enable Prometheus monitoring for applications running in Docker follow the be
 * Set BW_PROMETHEUS_ENABLE environment variable to TRUE while running the Docker image of the application.
 * Run your application using the below command: <br/>
   * docker run -d -p 9095:9095 -p exposed-port-by-application:8080 -e BW_PROMETHEUS_ENABLE=TRUE app-image-name <br/>
-If monitoring multiple apps then make sure the port 9095 is mapped to different port in the container. <br />
+If monitoring multiple apps then make sure the port 9095 is mapped to different port in the container as 9095 is the default port. <br />
+The port used by prometheus metrics can also be changed by using the env variable BW_PROMETHEUS_PORT <br/>
+* * Set BW_PROMETHEUS_HTTP_METRICS environment variable to TRUE to enale the http metrics for the application.
 To enable logging pass environment variable BW_LOGLEVEL=INFO|DEBUG <br/>
 Now, hit the application endpoint and check the metrics here: http://your-machine-ip:9095/metrics
 * Add prometheus.yml file and run the Prometheus server to scrape metrics generated in last step using the below commands: <br/>
