@@ -757,6 +757,12 @@ _analysis_scan_process() {
       "Module Shared Variable referenced. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: consider migrating to a DB-persisted Shared Variable, following similar principles as Checkpoint storage."
   fi
 
+  # --- WARNING: External Command Activity ---
+  if echo "$types" | grep -q 'com\.tibco\.plugin\.generalactivities\.ExternalCommandActivity'; then
+    _analysis_add_warning "$fname" "External Command Activity — Review Base Image" \
+      "External Command Activity detected. These activities execute OS-level commands and rely on binaries being available inside the container image. The TIBCO BusinessWorks 5 (Containers) base image may not include all required commands or utilities. Review each External Command Activity and verify that the required binaries are present in the base image, or plan for a custom base image that includes the additional dependencies."
+  fi
+
   # --- NOTE: File I/O ---
   local file_types
   file_types=$(echo "$types" | grep 'com\.tibco\.plugin\.file\.' || true)

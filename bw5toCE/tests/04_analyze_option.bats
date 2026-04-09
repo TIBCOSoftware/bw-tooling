@@ -157,6 +157,12 @@ run_full_flow() {
   assert_contains "$output" "REVIEW"
 }
 
+@test "--analyze-only: external_command.ear exits 0 and shows CAUTION" {
+  run_analyze_only "external_command"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "CAUTION"
+}
+
 # ─── Real application EAR ─────────────────────────────────────────────────────
 
 @test "--analyze-only: ProjADB732rpc.ear is READY for migration" {

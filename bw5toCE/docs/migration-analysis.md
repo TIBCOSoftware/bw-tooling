@@ -114,6 +114,19 @@ By default, blockers stop the deployment. Pass `--allow-blockers` to override an
 
 ---
 
+#### External Command Activity — Review Base Image
+**Trigger:** Any `com.tibco.plugin.generalactivities.ExternalCommandActivity` type found.
+
+**Why it warns:** External Command Activities execute OS-level commands and rely on binaries being available inside the container image. The TIBCO BusinessWorks 5 (Containers) base image may not include all required commands or utilities, which could cause runtime failures if the expected binary is not present.
+
+**Remediation:**
+- Review each External Command Activity and identify the OS commands it invokes
+- Verify that the required binaries are present in the TIBCO BusinessWorks 5 (Containers) base image
+- If binaries are missing, build a custom base image that includes the additional dependencies
+- Consider replacing OS-level commands with native BW activities (JDBC, REST, File, etc.) where possible
+
+---
+
 #### Module Shared Variable — Review Scope
 **Trigger:** A process file references a `.moduleSharedVariable` resource.
 

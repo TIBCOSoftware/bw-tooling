@@ -204,6 +204,27 @@ setup() {
   assert_contains "${ANALYSIS_NOTES[0]}" "Rendezvous"
 }
 
+# ─── WARNINGS (continued) ────────────────────────────────────────────────────
+
+@test "external_command.ear: External Command Activity is WARNING" {
+  ear="$(require_fixture "external_command")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
+  assert_contains "${ANALYSIS_WARNINGS[0]}" "External Command"
+}
+
+@test "external_command.ear: no blockers for External Command Activity" {
+  ear="$(require_fixture "external_command")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+}
+
+@test "external_command.ear: no notes for External Command Activity" {
+  ear="$(require_fixture "external_command")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]
+}
+
 # ─── State reset between calls ────────────────────────────────────────────────
 
 @test "analysis state is reset between analyze_ear_for_migration calls" {
