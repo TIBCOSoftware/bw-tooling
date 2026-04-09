@@ -697,15 +697,15 @@ _analysis_scan_process() {
   # HTTPEventSource (HTTPReceiver) with useHTTPAuthentication=true
   if echo "$types" | grep -q 'com.tibco.plugin.http.HTTPEventSource'; then
     if grep -q '<useHTTPAuthentication>true</useHTTPAuthentication>' "$pfile" 2>/dev/null; then
-      _analysis_add_blocker "$fname" "HTTP Basic Auth (server)" \
-        "HTTPReceiver (HTTPEventSource) has useHTTPAuthentication=true: Basic Auth not supported in BWCE server mode; remove auth or enforce it at the gateway/proxy level"
+      _analysis_add_blocker "$fname" "HTTP Basic Auth — HTTPReceiver" \
+        "HTTP Basic Auth in BW5 Classic relies on TIBCO Administrator domain users, which are not available in the Containers runtime. Cloud-native best practice is to externalize authentication outside the engine, using API Gateway, Ingress, or TIBCO Cloud API Management instead."
     fi
   fi
   # SOAPEventSource with useBasicAuthentication=true
   if echo "$types" | grep -q 'com.tibco.plugin.soap.SOAPEventSource'; then
     if grep -q '<useBasicAuthentication>true</useBasicAuthentication>' "$pfile" 2>/dev/null; then
-      _analysis_add_blocker "$fname" "HTTP Basic Auth (server)" \
-        "SOAPEventSource has useBasicAuthentication=true: Basic Auth not supported in BWCE server mode; remove auth or enforce it at the gateway/proxy level"
+      _analysis_add_blocker "$fname" "HTTP Basic Auth — SOAPEventSource" \
+        "HTTP Basic Auth in BW5 Classic relies on TIBCO Administrator domain users, which are not available in the Containers runtime. Cloud-native best practice is to externalize authentication outside the engine, using API Gateway, Ingress, or TIBCO Cloud API Management instead."
     fi
   fi
 
@@ -719,11 +719,11 @@ _analysis_scan_process() {
     if ! _analysis_is_supported_type "$type_ref"; then
       local _label
       if _label=$(_analysis_known_unsupported_label "$type_ref"); then
-        _analysis_add_blocker "$fname" "Unsupported: $_label" \
-          "Activity type '$type_ref' belongs to '$_label' which has no equivalent in BWCE; this adapter/plugin is not available on the CE runtime"
+        _analysis_add_blocker "$fname" "Not Yet Available: $_label" \
+          "This plugin is not yet available in this version of TIBCO BusinessWorks 5 (Containers). TIBCO is continuously expanding the platform's capabilities — please contact your TIBCO representative for detailed timelines or check for availability in a future release."
       else
-        _analysis_add_blocker "$fname" "Unsupported: $type_ref" \
-          "Activity type not in supported plugins/adapters list; verify compatibility with BWCE before migrating"
+        _analysis_add_blocker "$fname" "Not Yet Available: $type_ref" \
+          "Activity type '$type_ref' is not yet available in this version of TIBCO BusinessWorks 5 (Containers). TIBCO is continuously expanding the platform's capabilities — please contact your TIBCO representative for detailed timelines or check for availability in a future release."
       fi
     fi
   done <<< "$types"
@@ -732,18 +732,18 @@ _analysis_scan_process() {
   local wait_notify
   wait_notify=$(echo "$types" | grep -iE 'WaitForNotif|WaitNotif|NotifyActivity' || true)
   if [[ -n "$wait_notify" ]]; then
-    _analysis_add_warning "$fname" "Wait & Notify" \
-      "Wait/Notify pattern detected: cross-pod notification requires RV, which is not available between pods; behavior limited to single instance"
+    _analysis_add_warning "$fname" "Wait & Notify — Review Scope" \
+      "Wait/Notify pattern detected. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: TIBCO BusinessWorks 5 (Containers) follows standard Kubernetes practices where each instance is independent, and there is no out-of-the-box inter-instance communication for this feature."
   fi
 
   # --- WARNING: Checkpoint ---
   if echo "$types" | grep -q 'CheckpointActivity'; then
     if [[ "$has_db_checkpoint" == "true" ]]; then
-      _analysis_add_warning "$fname" "Checkpoint (DB storage)" \
-        "Checkpoint with DB storage detected: supported in containers but verify behavior under autoscaling or multi-replica deployments"
+      _analysis_add_warning "$fname" "Checkpoint — DB Storage" \
+        "Checkpoint with database storage detected. This is fully supported in TIBCO BusinessWorks 5 (Containers). We recommend validating behavior under autoscaling and multi-replica deployments to ensure checkpoint consistency."
     else
-      _analysis_add_warning "$fname" "Checkpoint (storage unknown)" \
-        "Checkpoint detected: only database-driven storage is supported in containers; file-based checkpoint storage will not work"
+      _analysis_add_warning "$fname" "Checkpoint — File Storage" \
+        "Checkpoint detected without database storage. File-based checkpoint storage requires additional persistent storage such as a PersistentVolumeClaim (PVC) and volume mount. We recommend migrating to a JDBC-based Checkpoint Data Repository for the best experience in a containerized environment."
     fi
   fi
 
@@ -753,8 +753,8 @@ _analysis_scan_process() {
   var_refs=$(grep -oE '<variableConfig>[^<]+</variableConfig>' "$pfile" 2>/dev/null \
     | sed 's/<variableConfig>//g; s/<\/variableConfig>//g' || true)
   if echo "$var_refs" | grep -q '\.moduleSharedVariable\|\.sharedvariable'; then
-    _analysis_add_warning "$fname" "Module Shared Variable" \
-      "Module-scoped Shared Variable referenced: values are not shared across pods; ensure DB persistence or redesign for stateless operation"
+    _analysis_add_warning "$fname" "Module Shared Variable — Review Scope" \
+      "Module Shared Variable referenced. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: consider migrating to a DB-persisted Shared Variable, following similar principles as Checkpoint storage."
   fi
 
   # --- NOTE: File I/O ---
@@ -763,20 +763,20 @@ _analysis_scan_process() {
   if [[ -n "$file_types" ]]; then
     local ops
     ops=$(echo "$file_types" | sed 's/com\.tibco\.plugin\.file\.//g' | tr '\n' ',' | sed 's/,$//')
-    _analysis_add_note "$fname" "File I/O" \
-      "File system activities ($ops): container local FS is ephemeral; use persistent volumes, object storage (S3), or SFTP adapter"
+    _analysis_add_note "$fname" "File I/O — Review Storage Design" \
+      "File system activities ($ops) detected. Temporary or internal files work as expected, though container storage is ephemeral. Read-only content may require a volume mount. If files need to be shared outside the application scope or with other parties, review the design: a PersistentVolumeClaim (PVC) or object storage (e.g., S3 via REST) may be required."
   fi
 
   # --- NOTE: Rendezvous ---
   if echo "$types" | grep -q 'com\.tibco\.plugin\.rendezvous\.'; then
-    _analysis_add_note "$fname" "Rendezvous" \
-      "TIBCO RV activities detected: RV daemon is harder to run in containerized environments; consider EMS as transport alternative"
+    _analysis_add_note "$fname" "TIBCO Rendezvous — Review Deployment Design" \
+      "TIBCO Rendezvous activities detected. Test carefully, as RV in a cloud environment may require TIBCO TRNS software or additional configuration. Re-evaluate the design to determine if it can be replaced with another TIBCO Messaging alternative such as TIBCO EMS or TIBCO Cloud Messaging, if needed."
   fi
 
   # --- NOTE: Fault Tolerant Group ---
   if grep -qiE 'FaultTolerant|ftgroup|FTGroup' "$pfile" 2>/dev/null; then
-    _analysis_add_note "$fname" "Fault Tolerant Group" \
-      "FT Group reference detected: FT Groups are replaced by Kubernetes self-healing (Deployment replicas); no action required but verify HA design"
+    _analysis_add_note "$fname" "Fault Tolerant Group — Cloud-Native HA" \
+      "Fault Tolerant Group reference detected. TIBCO BusinessWorks 5 (Containers) leverages Kubernetes built-in high availability through Deployment replicas, health probes, and self-healing — providing equivalent resilience natively. Review your design to take full advantage of these cloud-native HA capabilities."
   fi
 }
 
@@ -795,8 +795,8 @@ _analysis_scan_shared_resources() {
       persistence=$(grep -oE '<persistence>[^<]+</persistence>' "$rfile" 2>/dev/null \
         | sed 's/<persistence>//g; s/<\/persistence>//g' | head -1 || true)
       if [[ "$persistence" != "database" && "$persistence" != "jdbc" ]]; then
-        _analysis_add_warning "$fname" "Module Shared Var (non-DB)" \
-          "Module Shared Variable with persistence='${persistence:-none/default}': values not shared across pods; configure JDBC persistence or use external store"
+        _analysis_add_warning "$fname" "Module Shared Variable — Non-DB Persistence" \
+          "Module Shared Variable with non-database persistence ('${persistence:-none/default}') detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, migrating to JDBC-based persistence is recommended to ensure consistency across replicas."
       fi
     fi
   done < <(find "$res_dir" \( \
@@ -830,8 +830,8 @@ _analysis_scan_aar() {
   local i
   for i in "${!BWCE_AAR_UNSUPPORTED_NAMES[@]}"; do
     if [[ "$sw_name" == "${BWCE_AAR_UNSUPPORTED_NAMES[$i]}" ]]; then
-      _analysis_add_blocker "$fname" "Unsupported: ${BWCE_AAR_UNSUPPORTED_LABELS[$i]}" \
-        "Adapter '$sw_name' (${BWCE_AAR_UNSUPPORTED_LABELS[$i]}) is not available in BWCE; this adapter has no CE equivalent"
+      _analysis_add_blocker "$fname" "Not Yet Available: ${BWCE_AAR_UNSUPPORTED_LABELS[$i]}" \
+        "Adapter '${BWCE_AAR_UNSUPPORTED_LABELS[$i]}' is not yet available in this version of TIBCO BusinessWorks 5 (Containers). TIBCO is continuously expanding the platform's capabilities — please contact your TIBCO representative for detailed timelines or check for availability in a future release."
       return 0
     fi
   done
@@ -843,8 +843,8 @@ _analysis_scan_aar() {
   done
 
   # Unknown adapter — report for investigation
-  _analysis_add_blocker "$fname" "Unknown Adapter: $sw_name" \
-    "Adapter '$sw_name' is not in the known-supported or known-unsupported list; verify BWCE compatibility before migrating"
+  _analysis_add_blocker "$fname" "Not Yet Available: $sw_name" \
+    "Adapter '$sw_name' availability in TIBCO BusinessWorks 5 (Containers) could not be verified. TIBCO is continuously expanding the platform's capabilities — please contact your TIBCO representative or check for availability in a future release."
 }
 
 # Scan a single .serviceagent file for HTTP Basic Auth (server-mode).
@@ -853,8 +853,8 @@ _analysis_scan_service_agent() {
   local fname
   fname="$(basename "$safile")"
   if grep -q '<useBasicAuthentication>true</useBasicAuthentication>' "$safile" 2>/dev/null; then
-    _analysis_add_blocker "$fname" "HTTP Basic Auth (server)" \
-      "ServiceAgent has useBasicAuthentication=true: Basic Auth not supported in BWCE server mode; remove auth or enforce it at the gateway/proxy level"
+    _analysis_add_blocker "$fname" "HTTP Basic Auth — ServiceAgent" \
+      "HTTP Basic Auth in BW5 Classic relies on TIBCO Administrator domain users, which are not available in the Containers runtime. Cloud-native best practice is to externalize authentication outside the engine, using API Gateway, Ingress, or TIBCO Cloud API Management instead."
   fi
 }
 
