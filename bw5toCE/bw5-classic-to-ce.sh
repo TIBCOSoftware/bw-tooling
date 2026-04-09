@@ -1255,6 +1255,11 @@ if [[ "$DEPLOY_OFFLINE" == "true" && -z "$PLATFORM_ENV" ]]; then
   die "--deploy-offline requires --platform <ENV> for Platform API access"
 fi
 
+# --deploy-offline without an app name implies --batch (deploy all apps from output/)
+if [[ "$DEPLOY_OFFLINE" == "true" && "$BATCH_MODE" != "true" && -z "$APP_NAME" && -z "$DOMAIN" ]]; then
+  BATCH_MODE="true"
+fi
+
 # --no-deploy and --no-start require --platform
 if [[ "$NO_DEPLOY" == "true" && -z "$PLATFORM_ENV" ]]; then
   die "--no-deploy requires --platform <ENV> to upload the EAR"
