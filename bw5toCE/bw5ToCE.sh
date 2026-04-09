@@ -1703,18 +1703,39 @@ deploy_offline_from_output() {
     [[ -d "$app_dir" ]] || continue
     local app_label
     app_label="$(basename "${app_dir%/}")"
-    local latest_ear latest_values
-    latest_ear=$(ls -t "$app_dir"/*.ear 2>/dev/null | head -n1 || true)
-    latest_values=$(ls -t "$app_dir"/*-values.yaml 2>/dev/null | head -n1 || true)
-    # If there is a properties XML, validate it belongs to BW; otherwise omit
-    local latest_props
-    latest_props=$(ls -t "$app_dir"/*-deployment-props-*.xml 2>/dev/null | head -n1 || true)
+    local latest_ear="" latest_values="" latest_props=""
+    # Nullglob-safe: collect glob matches into array first to avoid ls listing cwd
+    local -a _g
+    _g=("$app_dir"/*.ear);                    (( ${#_g[@]} > 0 )) && latest_ear=$(ls -t "${_g[@]}" | head -n1) || true
+    _g=("$app_dir"/*-values.yaml);            (( ${#_g[@]} > 0 )) && latest_values=$(ls -t "${_g[@]}" | head -n1) || true
+    _g=("$app_dir"/*-deployment-props-*.xml); (( ${#_g[@]} > 0 )) && latest_props=$(ls -t "${_g[@]}" | head -n1) || true
     if [[ -n "$latest_props" && -f "$latest_props" ]]; then
       if ! is_bw_properties_xml "$latest_props"; then
         log "[offline] Skipping $app_label: not BW deployment XML."
         add_report_row "$app_label" "OMITTED" "not BW deployment XML"
         continue
       fi
+    fi
+    if [[ "$ANALYZE_ONLY" == "true" ]]; then
+      if [[ -z "$latest_ear" ]]; then
+        log "Skipping $app_label: missing EAR."
+        add_report_row "$app_label" "SKIPPED" "missing EAR"
+        continue
+      fi
+      CURRENT_APP="$app_label"
+      local _atmp="$app_dir/.analysis_tmp_$$"
+      mkdir -p "$_atmp"
+      analyze_ear_for_migration "$latest_ear" "$_atmp"
+      rm -rf "$_atmp"
+      print_analysis_summary "$app_label"
+      local _bc=${#ANALYSIS_BLOCKERS[@]} _wc=${#ANALYSIS_WARNINGS[@]} _nc=${#ANALYSIS_NOTES[@]}
+      if   (( _bc > 0 )); then add_report_row "$app_label" "BLOCKED" "${_bc}B/${_wc}W/${_nc}N"
+      elif (( _wc > 0 )); then add_report_row "$app_label" "CAUTION" "${_bc}B/${_wc}W/${_nc}N"
+      elif (( _nc > 0 )); then add_report_row "$app_label" "REVIEW"  "${_bc}B/${_wc}W/${_nc}N"
+      else                     add_report_row "$app_label" "READY"   ""
+      fi
+      CURRENT_APP=""
+      continue
     fi
     if [[ -z "$latest_ear" || -z "$latest_values" ]]; then
       log "Skipping $app_label: missing EAR or values.yaml."
@@ -1897,8 +1918,8 @@ if [[ "$DEPLOY_OFFLINE" == "true" && "$OFFLINE_EXPORT" == "true" ]]; then
   die "--deploy-offline and --offline are mutually exclusive: --deploy-offline deploys existing artifacts, --offline exports without deploying"
 fi
 
-# --deploy-offline requires --platform
-if [[ "$DEPLOY_OFFLINE" == "true" && -z "$PLATFORM_ENV" ]]; then
+# --deploy-offline requires --platform (unless analyze-only, which needs no platform)
+if [[ "$DEPLOY_OFFLINE" == "true" && -z "$PLATFORM_ENV" && "$ANALYZE_ONLY" != "true" ]]; then
   die "--deploy-offline requires --platform <ENV> for Platform API access"
 fi
 
@@ -1978,7 +1999,7 @@ if [[ "$DEPLOY_OFFLINE" != "true" ]]; then
   fi
   _required_bins+=("yq" "xmlstarlet" "zip")
 fi
-if [[ -n "$PLATFORM_ENV" || "$DEPLOY_OFFLINE" == "true" ]]; then
+if [[ (-n "$PLATFORM_ENV" || "$DEPLOY_OFFLINE" == "true") && "$ANALYZE_ONLY" != "true" ]]; then
   _required_bins+=("curl" "jq")
 fi
 check_prereqs "${_required_bins[@]}"
@@ -1989,7 +2010,9 @@ mkdir -p "$WORK_DIR" "$OUTPUT_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
 
 if [[ "$DEPLOY_OFFLINE" == "true" ]]; then
-  load_platform_env "$PLATFORM_ENV"
+  if [[ "$ANALYZE_ONLY" != "true" ]]; then
+    load_platform_env "$PLATFORM_ENV"
+  fi
   log "Deploy-offline mode: using artifacts from $OUTPUT_DIR via Platform API"
   # --batch forces deploying all apps from output/ regardless of positional args
   if [[ "$BATCH_MODE" == "true" ]]; then
