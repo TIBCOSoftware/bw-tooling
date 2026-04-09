@@ -23,9 +23,10 @@ APPMANAGE_EXPORT_EAR_TMPL='${APPMANAGE_BIN} --propFile ${APPMANAGE_BIN_FOLDER}/A
 # ================
 
 DEBUG="false"
-log() { if [[ "$DEBUG" == "true" ]]; then printf '[%(%Y-%m-%d %H:%M:%S)T] %s\n' -1 "$*"; fi; return 0; }
-err() { printf 'ERROR: %s\n' "$*" >&2; return 0; }
-die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
+CURRENT_APP=""
+log() { if [[ "$DEBUG" == "true" ]]; then printf '[%(%Y-%m-%d %H:%M:%S)T] [DEBUG]%s %s\n' -1 "${CURRENT_APP:+ [${CURRENT_APP}]}" "$*" >&2; fi; return 0; }
+err() { printf '[%(%Y-%m-%d %H:%M:%S)T] [ERROR]%s %s\n' -1 "${CURRENT_APP:+ [${CURRENT_APP}]}" "$*" >&2; return 0; }
+die() { printf '[%(%Y-%m-%d %H:%M:%S)T] [ERROR]%s %s\n' -1 "${CURRENT_APP:+ [${CURRENT_APP}]}" "$*" >&2; exit 1; }
 
 # One-line outcome summary for non-batch flows
 summary() { printf '%s\n' "$*"; }
@@ -33,6 +34,47 @@ summary() { printf '%s\n' "$*"; }
 require_bin() {
   local b="$1"
   command -v "$b" >/dev/null 2>&1 || die "Required binary not found in PATH: $b"
+}
+
+check_prereqs() {
+  # Check all given binaries and print a tool/status/path table; exit if any missing
+  local -a tools=("$@")
+  local b tool_w=4 status_w=6 path_w=4
+  local -a statuses paths
+
+  for b in "${tools[@]}"; do
+    local p
+    p=$(command -v "$b" 2>/dev/null || true)
+    if [[ -n "$p" ]]; then
+      statuses+=("OK"); paths+=("$p")
+    else
+      statuses+=("MISSING"); paths+=("not found in PATH")
+    fi
+    (( ${#b}           > tool_w   )) && tool_w=${#b}
+    (( ${#statuses[-1]} > status_w )) && status_w=${#statuses[-1]}
+    (( ${#paths[-1]}    > path_w   )) && path_w=${#paths[-1]}
+  done
+
+  local border fmt
+  border="+$(printf -- '-%.0s' $(seq 1 $((tool_w+2))))+$(printf -- '-%.0s' $(seq 1 $((status_w+2))))+$(printf -- '-%.0s' $(seq 1 $((path_w+2))))+"
+  fmt="| %-${tool_w}s | %-${status_w}s | %-${path_w}s |\n"
+
+  local i has_missing=0
+  for (( i=0; i<${#tools[@]}; i++ )); do
+    [[ "${statuses[$i]}" == "MISSING" ]] && has_missing=1
+  done
+
+  if (( has_missing )); then
+    printf '%s\n' "$border" >&2
+    printf "$fmt" "Tool" "Status" "Path" >&2
+    printf '%s\n' "$border" >&2
+    for (( i=0; i<${#tools[@]}; i++ )); do
+      printf "$fmt" "${tools[$i]}" "${statuses[$i]}" "${paths[$i]}" >&2
+    done
+    printf '%s\n' "$border" >&2
+    err "Install the missing tools and re-run the script."
+    exit 1
+  fi
 }
 
 # Cache expensive yq flavor detection so we call yq --version only once
@@ -535,6 +577,12 @@ platform_api_upload_build() {
   upload_resp="$(cat "$body_file")"
   rm -f "$body_file"
 
+  if [[ "$http_code" == "000" ]]; then
+    LAST_ERROR_DETAILS="No connectivity to Platform: server unreachable"
+    err "No connectivity to Platform (could not reach: $upload_url)"
+    return 1
+  fi
+
   if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]]; then
     local note
     note=$(extract_upload_error_detail "$upload_resp")
@@ -547,9 +595,9 @@ platform_api_upload_build() {
     if command -v jq >/dev/null 2>&1; then
       local pretty
       pretty=$(echo "$upload_resp" | jq -c . 2>/dev/null || echo "$upload_resp")
-      err "Upload error body: $pretty"
+      log "Upload error body: $pretty"
     else
-      err "Upload error body: $upload_resp"
+      log "Upload error body: $upload_resp"
     fi
     return 1
   fi
@@ -571,9 +619,9 @@ platform_api_upload_build() {
     if command -v jq >/dev/null 2>&1; then
       local pretty
       pretty=$(echo "$upload_resp" | jq -c . 2>/dev/null || echo "$upload_resp")
-      err "Upload error body: $pretty"
+      log "Upload error body: $pretty"
     else
-      err "Upload error body: $upload_resp"
+      log "Upload error body: $upload_resp"
     fi
     return 1
   fi
@@ -604,6 +652,13 @@ platform_api_deploy_values() {
     -F "values.yaml=@${values_file};type=application/x-yaml")
   deploy_resp="$(cat "$deploy_body_file")"
   rm -f "$deploy_body_file"
+
+  if [[ "$deploy_http_code" == "000" ]]; then
+    LAST_ERROR_DETAILS="No connectivity to Platform: server unreachable"
+    err "No connectivity to Platform (could not reach: $deploy_url)"
+    return 1
+  fi
+
   if [[ "$deploy_http_code" -lt 200 || "$deploy_http_code" -ge 300 ]]; then
     local note
     note=$(extract_errdetail "$deploy_resp")
@@ -616,9 +671,9 @@ platform_api_deploy_values() {
     if command -v jq >/dev/null 2>&1; then
       local pretty
       pretty=$(echo "$deploy_resp" | jq -c . 2>/dev/null || echo "$deploy_resp")
-      err "Deploy error body: $pretty"
+      log "Deploy error body: $pretty"
     else
-      err "Deploy error body: $deploy_resp"
+      log "Deploy error body: $deploy_resp"
     fi
     return 1
   fi
@@ -632,12 +687,19 @@ platform_api_check_app_exists() {
   local app_name="$1"
   [[ -n "$app_name" ]] || { echo ""; return 1; }
   require_bin jq
-  local list_url resp app_id
+  local list_url resp app_id http_code body_file
   k8s_name="$(to_k8s_name "$app_name")"
   list_url="${PLATFORM_BW5CE_BASE_URL}/public/v1/dp/apps?filterKey=name&filterValue=${k8s_name}"
-  resp=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" -k -s -X GET \
+  body_file="$(mktemp)"
+  http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" -k -s -w '%{http_code}' -o "$body_file" -X GET \
     "$list_url" \
     -H 'accept: application/json')
+  resp="$(cat "$body_file")"
+  rm -f "$body_file"
+  if [[ "$http_code" == "000" ]]; then
+    err "No connectivity to Platform (could not reach: $list_url)"
+    echo ""; return 1
+  fi
   app_id=$(echo "$resp" | jq -r --arg name "$k8s_name" '((.. | arrays | .[] | objects | select(.appName == $name) | .appId)) // empty' 2>/dev/null || echo "")
   if [[ "$app_id" == "null" ]]; then app_id=""; fi
   echo "$app_id"
@@ -657,6 +719,13 @@ platform_api_upgrade_values() {
     -F "values.yaml=@${values_file};type=application/x-yaml")
   resp="$(cat "$body_file")"
   rm -f "$body_file"
+
+  if [[ "$http_code" == "000" ]]; then
+    LAST_ERROR_DETAILS="No connectivity to Platform: server unreachable"
+    err "No connectivity to Platform (could not reach: $url)"
+    return 1
+  fi
+
   if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]]; then
     local note
     note=$(extract_errdetail "$resp")
@@ -819,6 +888,7 @@ batch_process_app() {
   # Args: app_display_name ear_path props_xml_path tmp_dir
   LAST_ERROR_DETAILS=""
   local app_disp="$1"; shift
+  CURRENT_APP="$app_disp"
   local ear_src="$1"; shift
   local prop_xml_src="$1"; shift
   local tmp_dir="$1"; shift
@@ -990,6 +1060,7 @@ batch_process_app() {
   # No platform env provided; skip deployment
   log "[${app_disp}] No --platform supplied; skipping deployment."
   add_report_row "$app_disp" "UPLOADED" "skipped deployment (no --platform)"
+  CURRENT_APP=""
 }
 
 deploy_offline_from_output() {
@@ -1015,6 +1086,8 @@ deploy_offline_from_output() {
   fi
   for app_dir in "$@"; do
     [[ -d "$app_dir" ]] || continue
+    local app_label
+    app_label="$(basename "${app_dir%/}")"
     local latest_ear latest_values
     latest_ear=$(ls -t "$app_dir"/*.ear 2>/dev/null | head -n1 || true)
     latest_values=$(ls -t "$app_dir"/*-values.yaml 2>/dev/null | head -n1 || true)
@@ -1023,18 +1096,23 @@ deploy_offline_from_output() {
     latest_props=$(ls -t "$app_dir"/*-deployment-props-*.xml 2>/dev/null | head -n1 || true)
     if [[ -n "$latest_props" && -f "$latest_props" ]]; then
       if ! is_bw_properties_xml "$latest_props"; then
-        log "[offline] Skipping $(basename "$app_dir"): not BW deployment XML."
+        log "[offline] Skipping $app_label: not BW deployment XML."
+        add_report_row "$app_label" "OMITTED" "not BW deployment XML"
         continue
       fi
     fi
     if [[ -z "$latest_ear" || -z "$latest_values" ]]; then
-      log "Skipping $(basename "$app_dir"): missing EAR or values.yaml."
+      log "Skipping $app_label: missing EAR or values.yaml."
+      add_report_row "$app_label" "SKIPPED" "missing EAR or values.yaml"
       continue
     fi
-    log "[offline] Deploying $(basename "$app_dir") via Platform API"
+    log "[offline] Deploying $app_label via Platform API"
+    CURRENT_APP="$app_label"
     if [[ "$NO_DEPLOY" == "true" ]]; then
       if ! platform_upload "$latest_ear" >/dev/null; then
-        err "[offline] Upload failed for $(basename "$app_dir"): $LAST_ERROR_DETAILS"
+        add_report_row "$app_label" "ERROR" "$LAST_ERROR_DETAILS"
+      else
+        add_report_row "$app_label" "UPLOADED" "no-deploy"
       fi
       continue
     fi
@@ -1048,9 +1126,22 @@ deploy_offline_from_output() {
       # Fallback to folder basename if appName not defined
       lookup_name="${app_dir%/}"; lookup_name="${lookup_name##*/}"
     fi
-    if ! platform_upload_and_deploy "$latest_ear" "$latest_values" "$app_dir" "$lookup_name"; then
-      err "[offline] Deployment failed for $(basename "$app_dir"): $LAST_ERROR_DETAILS"
-    fi
+    local __rc=0
+    platform_upload_and_deploy "$latest_ear" "$latest_values" "$app_dir" "$lookup_name" || __rc=$?
+    case "$__rc" in
+      0)
+        if [[ "$NO_START" == "true" ]]; then
+          add_report_row "$app_label" "DEPLOYED" "no-start (replicaCount=0)"
+        else
+          add_report_row "$app_label" "DEPLOYED" ""
+        fi
+        ;;
+      2) add_report_row "$app_label" "OMITTED" "Application and version already deployed there" ;;
+      *)
+        add_report_row "$app_label" "ERROR" "$LAST_ERROR_DETAILS"
+        ;;
+    esac
+    CURRENT_APP=""
   done
 }
 
@@ -1139,23 +1230,65 @@ if [[ -z "${APPMANAGE_BIN:-}" ]]; then
   APPMANAGE_BIN="${APPMANAGE_BIN_FOLDER}/AppManage"
 fi
 
-# Validate args according to mode
-# Incompatibilities: custom mode cannot be combined with --batch or --offline
+# ===========================
+# Validate flag combinations
+# ===========================
+
+# --offline and --platform are mutually exclusive
+if [[ "$OFFLINE_EXPORT" == "true" && -n "$PLATFORM_ENV" ]]; then
+  die "--offline and --platform are mutually exclusive: --offline skips all upload and deploy steps"
+fi
+
+# --no-deploy and --no-start are mutually exclusive
+if [[ "$NO_DEPLOY" == "true" && "$NO_START" == "true" ]]; then
+  die "--no-deploy and --no-start are mutually exclusive: --no-deploy skips deployment entirely, --no-start deploys with replicaCount=0"
+fi
+
+
+# --deploy-offline and --offline are mutually exclusive
+if [[ "$DEPLOY_OFFLINE" == "true" && "$OFFLINE_EXPORT" == "true" ]]; then
+  die "--deploy-offline and --offline are mutually exclusive: --deploy-offline deploys existing artifacts, --offline exports without deploying"
+fi
+
+# --deploy-offline requires --platform
+if [[ "$DEPLOY_OFFLINE" == "true" && -z "$PLATFORM_ENV" ]]; then
+  die "--deploy-offline requires --platform <ENV> for Platform API access"
+fi
+
+# --no-deploy and --no-start require --platform
+if [[ "$NO_DEPLOY" == "true" && -z "$PLATFORM_ENV" ]]; then
+  die "--no-deploy requires --platform <ENV> to upload the EAR"
+fi
+if [[ "$NO_START" == "true" && -z "$PLATFORM_ENV" ]]; then
+  die "--no-start requires --platform <ENV> to upload and deploy"
+fi
+
+# --force requires --platform (upgrade checks for an existing app on the Platform)
+if [[ "$FORCE_UPGRADE" == "true" && -z "$PLATFORM_ENV" ]]; then
+  die "--force requires --platform <ENV> (upgrade checks for an existing app on the Platform)"
+fi
+
+# Custom mode (--app/--ear/--xml) incompatibilities
 if [[ "$CUSTOM_MODE" == "true" ]]; then
-  if [[ "$BATCH_MODE" == "true" || "$OFFLINE_EXPORT" == "true" ]]; then
-    die "--app/--ear/--xml cannot be used with --batch or --offline"
+  if [[ "$BATCH_MODE" == "true" ]]; then
+    die "--app/--ear/--xml cannot be used with --batch: custom mode bypasses AppManage"
   fi
-  [[ -n "$CUSTOM_APP_NAME" && -n "$CUSTOM_EAR_FILE" && -n "$CUSTOM_XML_FILE" ]] || { err "--app, --ear and --xml must be provided together"; usage; exit 1; }
+  if [[ "$OFFLINE_EXPORT" == "true" ]]; then
+    die "--app/--ear/--xml cannot be used with --offline"
+  fi
+  if [[ "$DEPLOY_OFFLINE" == "true" ]]; then
+    die "--app/--ear/--xml cannot be used with --deploy-offline"
+  fi
+  [[ -n "$CUSTOM_APP_NAME" && -n "$CUSTOM_EAR_FILE" && -n "$CUSTOM_XML_FILE" ]] || { err "--app, --ear and --xml must all be provided together"; usage; exit 1; }
   [[ -f "$CUSTOM_EAR_FILE" ]] || die "EAR file not found: $CUSTOM_EAR_FILE"
   [[ -f "$CUSTOM_XML_FILE" ]] || die "XML file not found: $CUSTOM_XML_FILE"
 else
-  if [[ "$DEPLOY_OFFLINE" == "true" ]]; then
-    : # no domain/app needed
-  else
+  if [[ "$DEPLOY_OFFLINE" != "true" ]]; then
     if [[ "$BATCH_MODE" == "true" ]]; then
-      [[ -n "$DOMAIN" ]] || { usage; exit 1; }
+      [[ -n "$DOMAIN" ]] || { err "<DOMAIN> is required with --batch (unless combined with --deploy-offline)"; usage; exit 1; }
     else
-      [[ -n "$DOMAIN" && -n "$APP_NAME" ]] || { usage; exit 1; }
+      [[ -n "$DOMAIN" ]] || { err "<DOMAIN> is required"; usage; exit 1; }
+      [[ -n "$APP_NAME" ]] || { err "<APP_NAME> is required"; usage; exit 1; }
     fi
   fi
 fi
@@ -1183,38 +1316,47 @@ fi
 # Pre-flight
 # ===========
 
+# ==========================
+# Pre-flight: check all deps
+# ==========================
+_required_bins=()
 if [[ "$DEPLOY_OFFLINE" != "true" ]]; then
   if [[ "$CUSTOM_MODE" != "true" ]]; then
-    require_bin "$APPMANAGE_BIN"
-    require_bin envsubst
+    _required_bins+=("$APPMANAGE_BIN" "envsubst")
   fi
-  require_bin yq
-  require_bin xmlstarlet
+  _required_bins+=("yq" "xmlstarlet")
 fi
-mkdir -p "$WORK_DIR" "$OUTPUT_DIR"
-
-# Some modes require extra tools
 if [[ -n "$PLATFORM_ENV" || "$DEPLOY_OFFLINE" == "true" ]]; then
-  require_bin curl; require_bin jq
+  _required_bins+=("curl" "jq")
 fi
+check_prereqs "${_required_bins[@]}"
+unset _required_bins
+
+mkdir -p "$WORK_DIR" "$OUTPUT_DIR"
 
 TS="$(date +%Y%m%d-%H%M%S)"
 
 if [[ "$DEPLOY_OFFLINE" == "true" ]]; then
-  [[ -n "$PLATFORM_ENV" ]] || die "--deploy-offline requires --platform <ENV> for Platform API access"
   load_platform_env "$PLATFORM_ENV"
   log "Deploy-offline mode: using artifacts from $OUTPUT_DIR via Platform API"
-  # Optional single-app filter: if one positional provided, treat it as app name
-  app_filter=""
-  if [[ -n "$APP_NAME" ]]; then
-    app_filter="$APP_NAME"
-  elif [[ -n "$DOMAIN" ]]; then
-    app_filter="$DOMAIN"
-  fi
-  if [[ -n "$app_filter" ]]; then
-    deploy_offline_from_output "$app_filter"
-  else
+  # --batch forces deploying all apps from output/ regardless of positional args
+  if [[ "$BATCH_MODE" == "true" ]]; then
+    log "Batch deploy-offline: deploying all apps from $OUTPUT_DIR"
     deploy_offline_from_output
+    print_batch_report "${DOMAIN:-offline}" "$TS"
+  else
+    # Optional single-app filter: if one positional provided, treat it as app name
+    app_filter=""
+    if [[ -n "$APP_NAME" ]]; then
+      app_filter="$APP_NAME"
+    elif [[ -n "$DOMAIN" ]]; then
+      app_filter="$DOMAIN"
+    fi
+    if [[ -n "$app_filter" ]]; then
+      deploy_offline_from_output "$app_filter"
+    else
+      deploy_offline_from_output
+    fi
   fi
   exit 0
 fi
@@ -1363,11 +1505,6 @@ if [[ "$OFFLINE_EXPORT" == "true" ]]; then
   log "Mode offline: skipping upload and deployment. Artifacts are in $OUTPUT_APP_DIR"
   summary "EXPORTED: $APP_NAME"
   exit 0
-fi
-
-# Modes no-deploy / no-start require platform env for upload
-if [[ "$NO_DEPLOY" == "true" || "$NO_START" == "true" ]]; then
-  [[ -n "$PLATFORM_ENV" ]] || die "--no-deploy/--no-start require --platform <ENV> to upload/deploy"
 fi
 
 if [[ -n "$PLATFORM_ENV" ]]; then
