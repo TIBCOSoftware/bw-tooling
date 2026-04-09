@@ -1727,7 +1727,21 @@ deploy_offline_from_output() {
       mkdir -p "$_atmp"
       analyze_ear_for_migration "$latest_ear" "$_atmp"
       rm -rf "$_atmp"
-      print_analysis_summary "$app_label"
+      if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
+        print_analysis_summary "$app_label"
+      fi
+      if [[ "$GENERATE_REPORT" == "true" ]]; then
+        local _html="${app_dir%/}/${app_label}-analysis-${TS}.html"
+        generate_html_report "$app_label" "$_html"
+      fi
+      if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
+        if [[ -n "$CLI_REPORT_FILE" ]]; then
+          local _txt="${app_dir%/}/${app_label}-analysis-${TS}.txt"
+          generate_cli_report "$app_label" "$_txt"
+        else
+          generate_cli_report "$app_label"
+        fi
+      fi
       local _bc=${#ANALYSIS_BLOCKERS[@]} _wc=${#ANALYSIS_WARNINGS[@]} _nc=${#ANALYSIS_NOTES[@]}
       if   (( _bc > 0 )); then add_report_row "$app_label" "BLOCKED" "${_bc}B/${_wc}W/${_nc}N"
       elif (( _wc > 0 )); then add_report_row "$app_label" "CAUTION" "${_bc}B/${_wc}W/${_nc}N"
