@@ -341,6 +341,7 @@ Usage:
   $(basename "$0") <DOMAIN> --batch [--offline] [--namespace <ns>] [--platform <PLATFORM_ENV>] [--no-deploy] [--no-start]
   $(basename "$0") [<DOMAIN>] [<APP_NAME>] --deploy-offline --platform <PLATFORM_ENV>
   $(basename "$0") --app <NAME> --ear <PATH> --xml <PATH> [--namespace <ns>] [--platform <PLATFORM_ENV>] [--no-deploy] [--no-start]
+  $(basename "$0") <DOMAIN> <APP_NAME> --analyze-only [--report [<path>]]
   $(basename "$0") --version
 
 Behavior:
@@ -349,6 +350,7 @@ Behavior:
   - Writes YAML of Global Variables to output and updates values.yaml
   - If --platform is provided, can upload & deploy via Platform APIs using env/${PLATFORM_ENV}.env
   - Quiet by default; use --debug for verbose logs
+  - Migration readiness analysis runs automatically when an EAR is available
 
 Batch mode:
   - Uses AppManage -batchExport to export ALL apps' EARs from the domain.
@@ -356,9 +358,16 @@ Batch mode:
   - If not --offline, also exports deployment properties per app and updates values.
 
 Offline and control flags:
-  --offline       Export artifacts only (EAR + props + values); no upload or deploy
-  --no-deploy     Upload EAR to platform (requires --platform), but do not deploy
-  --no-start      Deploy with replicaCount=0 (app not started)
+  --offline            Export artifacts only (EAR + props + values); no upload or deploy
+  --no-deploy          Upload EAR to platform (requires --platform), but do not deploy
+  --no-start           Deploy with replicaCount=0 (app not started)
+
+Migration analysis flags:
+  --analyze-only       Run analysis only; do not upload or deploy (no --platform needed)
+  --report [<path>]    Generate HTML readiness report (default: output/<app>-analysis-<ts>.html)
+  --report-cli [<path>] Generate plain-text readiness report (default: output/<app>-analysis-<ts>.txt)
+  --allow-blockers     Deploy even if BLOCKER issues are found (use with caution)
+  --insecure-tls       Disable TLS certificate verification for Platform API calls (adds curl -k)
 
 Options:
   --namespace <ns>     Namespace for deploy (optional; omitted if not provided)
@@ -508,6 +517,583 @@ print_batch_report() {
   log "Batch report saved: $out_file"
 }
 
+# ==========================================
+# Migration Readiness Analysis
+# ==========================================
+
+# Findings: each entry is tab-separated "FILE\tITEM\tDESCRIPTION"
+ANALYSIS_BLOCKERS=()
+ANALYSIS_WARNINGS=()
+ANALYSIS_NOTES=()
+
+# Supported core BW5 activity type prefixes (always in the base image)
+BWCE_CORE_PREFIXES=(
+  "com.tibco.bw."
+  "com.tibco.pe."
+  "com.tibco.plugin.file."
+  "com.tibco.plugin.ftp."
+  "com.tibco.plugin.soap."
+  "com.tibco.plugin.http."
+  "com.tibco.plugin.jdbc."
+  "com.tibco.plugin.jms."
+  "com.tibco.plugin.ems."
+  "com.tibco.plugin.mail."
+  "com.tibco.plugin.rendezvous."
+  "com.tibco.plugin.timer."
+  "com.tibco.plugin.java."
+  "com.tibco.plugin.xml."
+  "com.tibco.plugin.xslt."
+  "com.tibco.plugin.mapper."
+  "com.tibco.plugin.generalactivities."
+  "com.tibco.plugin.shared."
+  "com.tibco.plugin.noop."
+  "com.tibco.plugin.log."
+  "com.tibco.plugin.parse."
+)
+
+# Supported additional adapters/plugins per the supported list.
+# Prefixes taken from the canonical PluginActivityMap in the extractor package.
+BWCE_PLUGIN_PREFIXES=(
+  "com.tibco.plugin.ae."             # Adapter Engine (AE) framework activities
+  "com.tibco.plugin.adb."
+  "com.tibco.plugin.sap."
+  "com.tibco.plugin.filesadapter."
+  "com.tibco.plugin.ae.fileadapter."
+  "com.tibco.plugin.siebel."
+  "com.tibco.plugin.ldap."
+  "com.tibco.plugin.sp."            # SFTP (com.tibco.plugin.sp.SFTP*)
+  "com.tibco.plugin.bwlx."          # Large XML
+  "com.tibco.plugin.json."           # REST/JSON (com.tibco.plugin.json.activities.*)
+  "com.tibco.plugin.restjson."       # REST/JSON (legacy namespace)
+  "com.tibco.bw.palette.rest."
+  "com.tibco.plugin.salesforce."
+  "com.tibco.plugin.mongodb."
+  "com.tibco.plugin.kafka."
+  "com.tibco.plugin.pulsar."
+  "com.tibco.plugin.ax.bc."          # B2B Connector (com.tibco.plugin.ax.bc.*)
+  "com.tibco.plugin.iProcessForms."  # iProcess
+  "com.tibco.plugin.staffware."      # iProcess (alternate namespace)
+  "com.tibco.plugin.dataconversion."
+  "com.tibco.plugin.bwmq."           # IBM MQ (com.tibco.plugin.bwmq.*)
+  "com.tibco.plugin.workday."
+  "com.tibco.plugin.oracleebs."      # Oracle E-Business Suite
+  "com.tibco.plugin.pdf."
+  "com.tibco.plugin.sharepoint."
+  "com.tibco.swift2.bwplugin."       # SWIFT (com.tibco.swift2.bwplugin.swiftcheck/swiftmxcheck.*)
+)
+
+# Adapters and plugins explicitly known to be unsupported in BWCE.
+# Prefixes taken from the canonical PluginActivityMap in the extractor package.
+# Parallel arrays: index N in PREFIXES maps to index N in LABELS.
+# Note: JD Edwards, PeopleSoft, OSIsoft PI, and Tuxedo are pure Adapter SDK resources
+# with no <pd:type> entries — they are detected via *.aar scanning instead (see below).
+BWCE_KNOWN_UNSUPPORTED_PREFIXES=(
+  # Plugins
+  "com.tibco.plugin.ejb."                     # EJB
+  "com.tibco.plugin.bwmi."                    # Mobile Integration
+  "com.tibco.plugin.netsuite."                # NetSuite
+  "com.tibco.solution.xref.plugin.activity."  # SmartMapper
+  "com.tibco.plugin.firefly.activities."      # ActiveSpaces 1/2
+  # Mainframe
+  "com.tibco.plugin.cicspi."                  # CICS
+  "com.tibco.plugin.hl7."                     # HL7
+)
+BWCE_KNOWN_UNSUPPORTED_LABELS=(
+  "EJB Plugin"
+  "Mobile Integration Plugin"
+  "NetSuite Plugin"
+  "SmartMapper Plugin"
+  "ActiveSpaces 1/2 Plugin"
+  "CICS Mainframe Plugin"
+  "HL7 Plugin"
+)
+
+# ── Adapter (AAR) detection tables ───────────────────────────────────────────
+# AAR files live at the EAR root and contain a TIBCO.xml with:
+#   <componentSoftwareName>VALUE</componentSoftwareName>
+# that identifies the adapter type.
+#
+# The VALUE confirmed from real sample EARs:
+#   adb  → confirmed from ProjADB732rpc sample
+# Other values are inferred from PluginAdapterMap keys (short form / full form).
+# Update these when additional adapter samples become available.
+#
+# Supported adapter componentSoftwareName values:
+BWCE_AAR_SUPPORTED_NAMES=(
+  "adb"     "adadb"          # ADB (confirmed: adb)
+  "r3"      "adr3"           # SAP R/3
+  "ldap"    "adldap"         # LDAP
+  "sbl"     "adsbl"          # Siebel
+  "files"   "adfiles"        # Files Adapter
+  "as400"   "adas400"        # AS/400
+  "adapter_sdk"              # Generic Adapter SDK
+)
+
+# Unsupported adapter componentSoftwareName values (parallel arrays):
+BWCE_AAR_UNSUPPORTED_NAMES=(
+  "jdexe"   "adjdexe"        # JD Edwards
+  "psft8"   "adpsft8"        # PeopleSoft
+  "pi"      "adpi"           # OSIsoft PI
+  "tuxedo"  "adtuxedo"       # Tuxedo
+)
+BWCE_AAR_UNSUPPORTED_LABELS=(
+  "JD Edwards Adapter"  "JD Edwards Adapter"
+  "PeopleSoft Adapter"  "PeopleSoft Adapter"
+  "OSIsoft PI Adapter"  "OSIsoft PI Adapter"
+  "Tuxedo Adapter"      "Tuxedo Adapter"
+)
+
+# Returns the display label for a known-unsupported type prefix, or 1 if unknown.
+_analysis_known_unsupported_label() {
+  local t="$1" i
+  for i in "${!BWCE_KNOWN_UNSUPPORTED_PREFIXES[@]}"; do
+    [[ "$t" == "${BWCE_KNOWN_UNSUPPORTED_PREFIXES[$i]}"* ]] \
+      && printf '%s' "${BWCE_KNOWN_UNSUPPORTED_LABELS[$i]}" && return 0
+  done
+  return 1
+}
+
+_analysis_add_blocker() { ANALYSIS_BLOCKERS+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_warning() { ANALYSIS_WARNINGS+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_note()    { ANALYSIS_NOTES+=("$1"$'\t'"$2"$'\t'"$3"); }
+
+_analysis_is_supported_type() {
+  local t="$1" p
+  for p in "${BWCE_CORE_PREFIXES[@]}" "${BWCE_PLUGIN_PREFIXES[@]}"; do
+    [[ "$t" == "$p"* ]] && return 0
+  done
+  return 1
+}
+
+# Check TIBCO.xml to infer if checkpoint storage is database-driven.
+# Prints "true" if BWDatabase* vars with "Checkpoint Data Repository" description are found.
+_analysis_check_tibco_xml() {
+  local tibco_xml="$1"
+  [[ -f "$tibco_xml" ]] || { printf 'false'; return; }
+  if grep -qi 'Checkpoint Data Repository\|bw\.checkpoint\|CheckpointDatabase' "$tibco_xml" 2>/dev/null; then
+    printf 'true'
+  else
+    printf 'false'
+  fi
+}
+
+# Scan a single .process file for migration issues.
+# $1 = process file path
+# $2 = "true" if checkpoint appears DB-backed (from TIBCO.xml analysis)
+_analysis_scan_process() {
+  local pfile="$1"
+  local has_db_checkpoint="${2:-false}"
+  local fname
+  fname="$(basename "$pfile")"
+
+  # Collect all activity type values: <pd:type>TYPENAME</pd:type>
+  local types
+  types=$(grep -oE '<pd:type>[^<]+</pd:type>' "$pfile" 2>/dev/null \
+    | sed 's/<pd:type>//g; s/<\/pd:type>//g' || true)
+
+  [[ -z "$types" ]] && return 0
+
+  # --- BLOCKER: HTTP Basic Auth (server-mode) ---
+  # HTTPEventSource (HTTPReceiver) with useHTTPAuthentication=true
+  if echo "$types" | grep -q 'com.tibco.plugin.http.HTTPEventSource'; then
+    if grep -q '<useHTTPAuthentication>true</useHTTPAuthentication>' "$pfile" 2>/dev/null; then
+      _analysis_add_blocker "$fname" "HTTP Basic Auth (server)" \
+        "HTTPReceiver (HTTPEventSource) has useHTTPAuthentication=true: Basic Auth not supported in BWCE server mode; remove auth or enforce it at the gateway/proxy level"
+    fi
+  fi
+  # SOAPEventSource with useBasicAuthentication=true
+  if echo "$types" | grep -q 'com.tibco.plugin.soap.SOAPEventSource'; then
+    if grep -q '<useBasicAuthentication>true</useBasicAuthentication>' "$pfile" 2>/dev/null; then
+      _analysis_add_blocker "$fname" "HTTP Basic Auth (server)" \
+        "SOAPEventSource has useBasicAuthentication=true: Basic Auth not supported in BWCE server mode; remove auth or enforce it at the gateway/proxy level"
+    fi
+  fi
+
+  # --- BLOCKER: Unsupported activity types ---
+  local type_ref
+  while IFS= read -r type_ref; do
+    type_ref="$(trim_spaces "$type_ref")"
+    [[ -z "$type_ref" ]] && continue
+    # Only flag com.tibco.* namespaces; ignore blanks, loop types, etc.
+    [[ "$type_ref" != com.tibco.* ]] && continue
+    if ! _analysis_is_supported_type "$type_ref"; then
+      local _label
+      if _label=$(_analysis_known_unsupported_label "$type_ref"); then
+        _analysis_add_blocker "$fname" "Unsupported: $_label" \
+          "Activity type '$type_ref' belongs to '$_label' which has no equivalent in BWCE; this adapter/plugin is not available on the CE runtime"
+      else
+        _analysis_add_blocker "$fname" "Unsupported: $type_ref" \
+          "Activity type not in supported plugins/adapters list; verify compatibility with BWCE before migrating"
+      fi
+    fi
+  done <<< "$types"
+
+  # --- WARNING: Wait & Notify ---
+  local wait_notify
+  wait_notify=$(echo "$types" | grep -iE 'WaitForNotif|WaitNotif|NotifyActivity' || true)
+  if [[ -n "$wait_notify" ]]; then
+    _analysis_add_warning "$fname" "Wait & Notify" \
+      "Wait/Notify pattern detected: cross-pod notification requires RV, which is not available between pods; behavior limited to single instance"
+  fi
+
+  # --- WARNING: Checkpoint ---
+  if echo "$types" | grep -q 'CheckpointActivity'; then
+    if [[ "$has_db_checkpoint" == "true" ]]; then
+      _analysis_add_warning "$fname" "Checkpoint (DB storage)" \
+        "Checkpoint with DB storage detected: supported in containers but verify behavior under autoscaling or multi-replica deployments"
+    else
+      _analysis_add_warning "$fname" "Checkpoint (storage unknown)" \
+        "Checkpoint detected: only database-driven storage is supported in containers; file-based checkpoint storage will not work"
+    fi
+  fi
+
+  # --- WARNING: Module Shared Variable usage (scope check done via shared resources) ---
+  # We flag the process if it references a .moduleSharedVariable resource
+  local var_refs
+  var_refs=$(grep -oE '<variableConfig>[^<]+</variableConfig>' "$pfile" 2>/dev/null \
+    | sed 's/<variableConfig>//g; s/<\/variableConfig>//g' || true)
+  if echo "$var_refs" | grep -q '\.moduleSharedVariable\|\.sharedvariable'; then
+    _analysis_add_warning "$fname" "Module Shared Variable" \
+      "Module-scoped Shared Variable referenced: values are not shared across pods; ensure DB persistence or redesign for stateless operation"
+  fi
+
+  # --- NOTE: File I/O ---
+  local file_types
+  file_types=$(echo "$types" | grep 'com\.tibco\.plugin\.file\.' || true)
+  if [[ -n "$file_types" ]]; then
+    local ops
+    ops=$(echo "$file_types" | sed 's/com\.tibco\.plugin\.file\.//g' | tr '\n' ',' | sed 's/,$//')
+    _analysis_add_note "$fname" "File I/O" \
+      "File system activities ($ops): container local FS is ephemeral; use persistent volumes, object storage (S3), or SFTP adapter"
+  fi
+
+  # --- NOTE: Rendezvous ---
+  if echo "$types" | grep -q 'com\.tibco\.plugin\.rendezvous\.'; then
+    _analysis_add_note "$fname" "Rendezvous" \
+      "TIBCO RV activities detected: RV daemon is harder to run in containerized environments; consider EMS as transport alternative"
+  fi
+
+  # --- NOTE: Fault Tolerant Group ---
+  if grep -qiE 'FaultTolerant|ftgroup|FTGroup' "$pfile" 2>/dev/null; then
+    _analysis_add_note "$fname" "Fault Tolerant Group" \
+      "FT Group reference detected: FT Groups are replaced by Kubernetes self-healing (Deployment replicas); no action required but verify HA design"
+  fi
+}
+
+# Scan all shared resource files extracted from a SAR
+_analysis_scan_shared_resources() {
+  local res_dir="$1"
+  local rfile fname resource_type
+  while IFS= read -r -d '' rfile; do
+    fname="$(basename "$rfile")"
+    resource_type=$(grep -oE '<resourceType>[^<]+</resourceType>' "$rfile" 2>/dev/null \
+      | sed 's/<resourceType>//g; s/<\/resourceType>//g' | head -1 || true)
+
+    # Module Shared Variable without DB persistence
+    if [[ "$resource_type" == "ae.shared.moduleSharedVariable" ]]; then
+      local persistence
+      persistence=$(grep -oE '<persistence>[^<]+</persistence>' "$rfile" 2>/dev/null \
+        | sed 's/<persistence>//g; s/<\/persistence>//g' | head -1 || true)
+      if [[ "$persistence" != "database" && "$persistence" != "jdbc" ]]; then
+        _analysis_add_warning "$fname" "Module Shared Var (non-DB)" \
+          "Module Shared Variable with persistence='${persistence:-none/default}': values not shared across pods; configure JDBC persistence or use external store"
+      fi
+    fi
+  done < <(find "$res_dir" \( \
+    -name "*.moduleSharedVariable" -o \
+    -name "*.sharedvariable" \
+    \) -print0 2>/dev/null)
+}
+
+# Scan a single .aar (Adapter Archive) at the EAR root.
+# Extracts componentSoftwareName from the AAR's TIBCO.xml and flags
+# unsupported adapters as BLOCKERs.
+_analysis_scan_aar() {
+  local aar_file="$1"
+  local work_dir="$2"
+  local fname
+  fname="$(basename "$aar_file")"
+
+  local aar_dir="$work_dir/$(basename "$aar_file").analysis.d"
+  mkdir -p "$aar_dir"
+  unzip -qo "$aar_file" -d "$aar_dir" 2>/dev/null || return 0
+
+  local tibco_xml="$aar_dir/TIBCO.xml"
+  [[ -f "$tibco_xml" ]] || return 0
+
+  local sw_name
+  sw_name=$(grep -oE '<componentSoftwareName>[^<]+</componentSoftwareName>' "$tibco_xml" 2>/dev/null \
+    | sed 's/<componentSoftwareName>//g; s/<\/componentSoftwareName>//g' | head -1 || true)
+  [[ -z "$sw_name" ]] && return 0
+
+  # Check known-unsupported adapters
+  local i
+  for i in "${!BWCE_AAR_UNSUPPORTED_NAMES[@]}"; do
+    if [[ "$sw_name" == "${BWCE_AAR_UNSUPPORTED_NAMES[$i]}" ]]; then
+      _analysis_add_blocker "$fname" "Unsupported: ${BWCE_AAR_UNSUPPORTED_LABELS[$i]}" \
+        "Adapter '$sw_name' (${BWCE_AAR_UNSUPPORTED_LABELS[$i]}) is not available in BWCE; this adapter has no CE equivalent"
+      return 0
+    fi
+  done
+
+  # Check known-supported adapters (no action needed)
+  local sup
+  for sup in "${BWCE_AAR_SUPPORTED_NAMES[@]}"; do
+    [[ "$sw_name" == "$sup" ]] && return 0
+  done
+
+  # Unknown adapter — report for investigation
+  _analysis_add_blocker "$fname" "Unknown Adapter: $sw_name" \
+    "Adapter '$sw_name' is not in the known-supported or known-unsupported list; verify BWCE compatibility before migrating"
+}
+
+# Scan a single .serviceagent file for HTTP Basic Auth (server-mode).
+_analysis_scan_service_agent() {
+  local safile="$1"
+  local fname
+  fname="$(basename "$safile")"
+  if grep -q '<useBasicAuthentication>true</useBasicAuthentication>' "$safile" 2>/dev/null; then
+    _analysis_add_blocker "$fname" "HTTP Basic Auth (server)" \
+      "ServiceAgent has useBasicAuthentication=true: Basic Auth not supported in BWCE server mode; remove auth or enforce it at the gateway/proxy level"
+  fi
+}
+
+# Main analysis driver: extracts EAR, scans all processes and shared resources.
+# Populates ANALYSIS_BLOCKERS, ANALYSIS_WARNINGS, ANALYSIS_NOTES.
+analyze_ear_for_migration() {
+  local ear_file="$1"
+  local work_dir="$2"
+
+  ANALYSIS_BLOCKERS=()
+  ANALYSIS_WARNINGS=()
+  ANALYSIS_NOTES=()
+
+  require_bin unzip
+
+  local ear_dir="$work_dir/analysis_ear"
+  mkdir -p "$ear_dir"
+  unzip -qo "$ear_file" -d "$ear_dir" 2>/dev/null \
+    || { err "Cannot extract EAR for analysis: $ear_file"; return 1; }
+
+  # Infer checkpoint storage type from TIBCO.xml
+  local has_db_checkpoint
+  has_db_checkpoint=$(_analysis_check_tibco_xml "$ear_dir/TIBCO.xml")
+
+  # Process each PAR (process archive)
+  local par_file par_dir process_file
+  while IFS= read -r -d '' par_file; do
+    par_dir="${par_file}.analysis.d"
+    mkdir -p "$par_dir"
+    unzip -qo "$par_file" -d "$par_dir" 2>/dev/null || continue
+    log "Analysis: scanning $(basename "$par_file")"
+    while IFS= read -r -d '' process_file; do
+      _analysis_scan_process "$process_file" "$has_db_checkpoint"
+    done < <(find "$par_dir" -name "*.process" -print0 2>/dev/null)
+    local agent_file
+    while IFS= read -r -d '' agent_file; do
+      _analysis_scan_service_agent "$agent_file"
+    done < <(find "$par_dir" -name "*.serviceagent" -print0 2>/dev/null)
+  done < <(find "$ear_dir" -name "*.par" -print0 2>/dev/null)
+
+  # Process each AAR (adapter archive) at the EAR root
+  local aar_file
+  while IFS= read -r -d '' aar_file; do
+    log "Analysis: scanning adapter $(basename "$aar_file")"
+    _analysis_scan_aar "$aar_file" "$ear_dir"
+  done < <(find "$ear_dir" -maxdepth 1 -name "*.aar" -print0 2>/dev/null)
+
+  # Process each SAR (shared archive)
+  local sar_file sar_dir
+  while IFS= read -r -d '' sar_file; do
+    sar_dir="${sar_file}.analysis.d"
+    mkdir -p "$sar_dir"
+    unzip -qo "$sar_file" -d "$sar_dir" 2>/dev/null || continue
+    log "Analysis: scanning shared resources in $(basename "$sar_file")"
+    _analysis_scan_shared_resources "$sar_dir"
+  done < <(find "$ear_dir" -name "*.sar" -print0 2>/dev/null)
+
+  log "Analysis complete: ${#ANALYSIS_BLOCKERS[@]} blockers, ${#ANALYSIS_WARNINGS[@]} warnings, ${#ANALYSIS_NOTES[@]} notes"
+}
+
+print_analysis_summary() {
+  local app_name="$1"
+  local b_count=${#ANALYSIS_BLOCKERS[@]}
+  local w_count=${#ANALYSIS_WARNINGS[@]}
+  local n_count=${#ANALYSIS_NOTES[@]}
+  local hr
+  hr="$(repeat_char '─' 72)"
+
+  printf '\n%s\n' "$hr"
+  printf ' MIGRATION READINESS: %s\n' "$app_name"
+  printf '%s\n' "$hr"
+
+  if (( b_count == 0 && w_count == 0 && n_count == 0 )); then
+    printf ' STATUS: READY — No migration issues detected\n'
+    printf '%s\n\n' "$hr"
+    return 0
+  fi
+
+  if (( b_count > 0 )); then
+    printf ' STATUS: BLOCKED — %d blocker(s) must be resolved before migrating\n' "$b_count"
+  elif (( w_count > 0 )); then
+    printf ' STATUS: CAUTION — %d behavior change(s) to review\n' "$w_count"
+  else
+    printf ' STATUS: REVIEW — %d note(s) for cloud-native adaptation\n' "$n_count"
+  fi
+  printf '%s\n' "$hr"
+
+  local entry file item desc
+
+  if (( b_count > 0 )); then
+    printf '\n BLOCKERS (%d) — must resolve before deploying to containers:\n\n' "$b_count"
+    for entry in "${ANALYSIS_BLOCKERS[@]}"; do
+      IFS=$'\t' read -r file item desc <<< "$entry"
+      printf '  [B] %-40s  %s\n      %s\n\n' "$item" "$file" "$desc"
+    done
+  fi
+
+  if (( w_count > 0 )); then
+    printf ' WARNINGS (%d) — behavior differs in containers:\n\n' "$w_count"
+    for entry in "${ANALYSIS_WARNINGS[@]}"; do
+      IFS=$'\t' read -r file item desc <<< "$entry"
+      printf '  [W] %-40s  %s\n      %s\n\n' "$item" "$file" "$desc"
+    done
+  fi
+
+  if (( n_count > 0 )); then
+    printf ' NOTES (%d) — items to review for cloud-native deployment:\n\n' "$n_count"
+    for entry in "${ANALYSIS_NOTES[@]}"; do
+      IFS=$'\t' read -r file item desc <<< "$entry"
+      printf '  [N] %-40s  %s\n      %s\n\n' "$item" "$file" "$desc"
+    done
+  fi
+
+  printf '%s\n\n' "$hr"
+}
+
+generate_cli_report() {
+  local app_name="$1"
+  local report_file="${2:-}"
+  if [[ -z "$report_file" ]]; then
+    print_analysis_summary "$app_name"
+  else
+    print_analysis_summary "$app_name" > "$report_file"
+    printf 'CLI report: %s\n' "$report_file"
+    log "CLI report written: $report_file"
+  fi
+}
+
+_html_esc() {
+  local s="$1"
+  s="${s//&/&amp;}"; s="${s//</&lt;}"; s="${s//>/&gt;}"; s="${s//\"/&quot;}"
+  printf '%s' "$s"
+}
+
+generate_html_report() {
+  local app_name="$1"
+  local report_file="$2"
+  local b_count=${#ANALYSIS_BLOCKERS[@]}
+  local w_count=${#ANALYSIS_WARNINGS[@]}
+  local n_count=${#ANALYSIS_NOTES[@]}
+  local ts
+  ts="$(date '+%Y-%m-%d %H:%M:%S')"
+
+  local badge_class badge_label
+  if   (( b_count > 0 )); then badge_class="blocked"; badge_label="BLOCKED"
+  elif (( w_count > 0 )); then badge_class="caution"; badge_label="CAUTION"
+  elif (( n_count > 0 )); then badge_class="review";  badge_label="REVIEW"
+  else                         badge_class="ready";   badge_label="READY"
+  fi
+
+  cat > "$report_file" <<HTMLEOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BW5 Migration Readiness: $(printf '%s' "$app_name" | sed 's/</\&lt;/g;s/>/\&gt;/g')</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;background:#f5f7fa;color:#222}
+.hdr{background:#1a2b4a;color:#fff;padding:24px 32px}
+.hdr h1{margin:0 0 4px;font-size:1.4rem;font-weight:600}
+.hdr p{margin:0;opacity:.7;font-size:.85rem}
+.body{padding:24px 32px;max-width:1100px;margin:0 auto}
+.badge{display:inline-block;padding:6px 20px;border-radius:20px;font-weight:700;font-size:1rem;margin-bottom:20px}
+.blocked{background:#fee2e2;color:#991b1b}
+.caution{background:#fef9c3;color:#854d0e}
+.review{background:#dbeafe;color:#1e40af}
+.ready{background:#d1fadf;color:#166534}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.card{background:#fff;border-radius:8px;padding:16px 20px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
+.num{font-size:2.2rem;font-weight:700}
+.num.b{color:#dc2626}.num.w{color:#d97706}.num.n{color:#2563eb}
+.lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;opacity:.6;margin-top:4px}
+section{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:20px;overflow:hidden}
+h2{margin:0;padding:14px 20px;font-size:.95rem;font-weight:600}
+h2.bh{background:#fee2e2;color:#991b1b}
+h2.wh{background:#fef9c3;color:#92400e}
+h2.nh{background:#eff6ff;color:#1e40af}
+h2.oh{background:#d1fadf;color:#166534}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{background:#f8fafc;padding:10px 16px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0}
+td{padding:10px 16px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.bi td:first-child{color:#dc2626;font-weight:600}
+.wi td:first-child{color:#b45309;font-weight:600}
+.ni td:first-child{color:#1d4ed8;font-weight:600}
+.foot{margin-top:32px;font-size:.78rem;color:#999;text-align:center;padding-bottom:24px}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>BW5 Migration Readiness Report</h1>
+  <p>Application: <strong>$(printf '%s' "$app_name" | sed 's/</\&lt;/g;s/>/\&gt;/g')</strong> &nbsp;|&nbsp; Generated: ${ts}</p>
+</div>
+<div class="body">
+  <div class="badge ${badge_class}">${badge_label}</div>
+  <div class="grid">
+    <div class="card"><div class="num b">${b_count}</div><div class="lbl">Blockers</div></div>
+    <div class="card"><div class="num w">${w_count}</div><div class="lbl">Warnings</div></div>
+    <div class="card"><div class="num n">${n_count}</div><div class="lbl">Notes</div></div>
+  </div>
+HTMLEOF
+
+  # Helper to append a table section
+  local entry file item desc row_class sec_class hdr_class hdr_icon
+  _append_section() {
+    local -n _arr="$1"
+    local _row_class="$2" _hdr_class="$3" _title="$4"
+    [[ ${#_arr[@]} -eq 0 ]] && return 0
+    printf '<section><h2 class="%s">%s</h2>\n' "$_hdr_class" "$_title" >> "$report_file"
+    printf '<table><tr><th>Issue</th><th>File</th><th>Details &amp; Recommendation</th></tr>\n' >> "$report_file"
+    for entry in "${_arr[@]}"; do
+      IFS=$'\t' read -r file item desc <<< "$entry"
+      printf '<tr class="%s"><td>%s</td><td>%s</td><td>%s</td></tr>\n' \
+        "$_row_class" "$(_html_esc "$item")" "$(_html_esc "$file")" "$(_html_esc "$desc")" >> "$report_file"
+    done
+    printf '</table></section>\n' >> "$report_file"
+  }
+
+  _append_section ANALYSIS_BLOCKERS "bi" "bh" "&#10006; Blockers — must resolve before migration (${b_count})"
+  _append_section ANALYSIS_WARNINGS "wi" "wh" "&#9888; Warnings — behavior differs in containers (${w_count})"
+  _append_section ANALYSIS_NOTES    "ni" "nh" "&#8505; Notes — cloud-native considerations (${n_count})"
+
+  if (( b_count == 0 && w_count == 0 && n_count == 0 )); then
+    printf '<section><h2 class="oh">&#10003; Ready — no migration issues detected</h2>' >> "$report_file"
+    printf '<p style="padding:16px 20px;margin:0">This application appears ready for containerized deployment.</p></section>\n' >> "$report_file"
+  fi
+
+  cat >> "$report_file" <<HTMLEOF
+  <div class="foot">Generated by bw5ToCE.sh v${VERSION} &nbsp;|&nbsp; TIBCO BusinessWorks 5 Migration Toolkit</div>
+</div>
+</body>
+</html>
+HTMLEOF
+
+  printf 'Analysis report: %s\n' "$report_file"
+  log "HTML report written: $report_file"
+}
+
 update_values_yaml() {
   local values="$1"
   local gv_yaml="$2"
@@ -568,7 +1154,7 @@ platform_api_upload_build() {
 
   local http_code body_file upload_resp build_id
   body_file="$(mktemp)"
-  http_code=$(curl -k -s -w '%{http_code}' -o "$body_file" -H "Authorization: Bearer ${PLATFORM_TOKEN}" -X POST \
+  http_code=$(curl "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$body_file" -H "Authorization: Bearer ${PLATFORM_TOKEN}" -X POST \
     "$upload_url" \
     -H 'accept: application/json' \
     -H 'Content-Type: multipart/form-data' \
@@ -645,7 +1231,7 @@ platform_api_deploy_values() {
 
   local deploy_http_code deploy_body_file deploy_resp
   deploy_body_file="$(mktemp)"
-  deploy_http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" -k -s -w '%{http_code}' -o "$deploy_body_file" -X POST \
+  deploy_http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$deploy_body_file" -X POST \
     "$deploy_url" \
     -H 'accept: application/json' \
     -H 'Content-Type: multipart/form-data' \
@@ -691,7 +1277,7 @@ platform_api_check_app_exists() {
   k8s_name="$(to_k8s_name "$app_name")"
   list_url="${PLATFORM_BW5CE_BASE_URL}/public/v1/dp/apps?filterKey=name&filterValue=${k8s_name}"
   body_file="$(mktemp)"
-  http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" -k -s -w '%{http_code}' -o "$body_file" -X GET \
+  http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$body_file" -X GET \
     "$list_url" \
     -H 'accept: application/json')
   resp="$(cat "$body_file")"
@@ -712,7 +1298,7 @@ platform_api_upgrade_values() {
   local url http_code body_file resp
   url="${PLATFORM_BW5CE_BASE_URL}/public/v2/dp/apps/${app_id}/release/values?buildId=${build_id}"
   body_file="$(mktemp)"
-  http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" -k -s -w '%{http_code}' -o "$body_file" -X PUT \
+  http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$body_file" -X PUT \
     "$url" \
     -H 'accept: application/json' \
     -H 'Content-Type: multipart/form-data' \
@@ -991,6 +1577,35 @@ batch_process_app() {
     return 0
   fi
 
+  # Migration Readiness Analysis (per app in batch)
+  if [[ -f "$final_ear" ]]; then
+    local batch_analysis_tmp
+    batch_analysis_tmp="$(mktemp -d "${tmp_dir}/.analysis_${safe_app}.XXXX")"
+    analyze_ear_for_migration "$final_ear" "$batch_analysis_tmp"
+    local b_c=${#ANALYSIS_BLOCKERS[@]} w_c=${#ANALYSIS_WARNINGS[@]} n_c=${#ANALYSIS_NOTES[@]}
+    if (( b_c > 0 || w_c > 0 || n_c > 0 )); then
+      local analysis_note="Analysis: ${b_c}B/${w_c}W/${n_c}N"
+      if [[ "$GENERATE_REPORT" == "true" ]]; then
+        local batch_report_path="${app_out_dir}/${safe_app}-analysis-${ts}.html"
+        generate_html_report "$app_disp" "$batch_report_path"
+        analysis_note="${analysis_note} (html: $(basename "$batch_report_path"))"
+      fi
+      if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
+        if [[ -n "$CLI_REPORT_FILE" ]]; then
+          local batch_cli_report_path="${app_out_dir}/${safe_app}-analysis-${ts}.txt"
+          generate_cli_report "$app_disp" "$batch_cli_report_path"
+          analysis_note="${analysis_note} (txt: $(basename "$batch_cli_report_path"))"
+        else
+          generate_cli_report "$app_disp"
+        fi
+      fi
+      if (( b_c > 0 )) && [[ "$ALLOW_BLOCKERS" != "true" ]]; then
+        add_report_row "$app_disp" "BLOCKED" "${analysis_note} — use --allow-blockers to override"
+        return 0
+      fi
+    fi
+  fi
+
   # If offline export, stop here
   if [[ "$OFFLINE_EXPORT" == "true" ]]; then
     add_report_row "$app_disp" "EXPORTED" "offline export only"
@@ -1145,6 +1760,10 @@ deploy_offline_from_output() {
   done
 }
 
+# Allow this script to be sourced (e.g. by BATS tests) to expose helper/analysis
+# functions without executing the main argument-parsing and deployment flow.
+[[ "${BASH_SOURCE[0]}" != "${0}" ]] && return 0
+
 # =========
 # Arguments
 # =========
@@ -1161,6 +1780,13 @@ OFFLINE_EXPORT="false"
 NO_DEPLOY="false"
 NO_START="false"
 FORCE_UPGRADE="false"
+ANALYZE_ONLY="false"
+GENERATE_REPORT="false"
+CURL_OPTS=()   # populated with -k only when --insecure-tls is passed
+REPORT_FILE=""
+GENERATE_CLI_REPORT="false"
+CLI_REPORT_FILE=""
+ALLOW_BLOCKERS="false"
 # Custom artifacts mode (bypass AppManage export)
 CUSTOM_MODE="false"
 CUSTOM_APP_NAME=""
@@ -1183,6 +1809,27 @@ while [[ $# -gt 0 ]]; do
     --app) CUSTOM_APP_NAME="${2:-}"; CUSTOM_MODE="true"; shift 2 ;;
     --ear) CUSTOM_EAR_FILE="${2:-}"; CUSTOM_MODE="true"; shift 2 ;;
     --xml) CUSTOM_XML_FILE="${2:-}"; CUSTOM_MODE="true"; shift 2 ;;
+    --analyze-only) ANALYZE_ONLY="true"; shift ;;
+    --allow-blockers) ALLOW_BLOCKERS="true"; shift ;;
+    --insecure-tls) CURL_OPTS+=("-k"); shift ;;
+    --report)
+      GENERATE_REPORT="true"
+      # Optional path argument: consume only if next token is not a flag
+      if [[ $# -gt 1 && "${2:-}" != --* && -n "${2:-}" ]]; then
+        REPORT_FILE="${2}"; shift 2
+      else
+        shift
+      fi
+      ;;
+    --report-cli)
+      GENERATE_CLI_REPORT="true"
+      # Optional path argument
+      if [[ $# -gt 1 && "${2:-}" != --* && -n "${2:-}" ]]; then
+        CLI_REPORT_FILE="${2}"; shift 2
+      else
+        shift
+      fi
+      ;;
     --debug) DEBUG="true"; shift ;;
     -h|--help) usage; exit 0 ;;
     --*) err "Unknown option: $1"; usage; exit 1 ;;
@@ -1329,7 +1976,7 @@ if [[ "$DEPLOY_OFFLINE" != "true" ]]; then
   if [[ "$CUSTOM_MODE" != "true" ]]; then
     _required_bins+=("$APPMANAGE_BIN" "envsubst")
   fi
-  _required_bins+=("yq" "xmlstarlet")
+  _required_bins+=("yq" "xmlstarlet" "zip")
 fi
 if [[ -n "$PLATFORM_ENV" || "$DEPLOY_OFFLINE" == "true" ]]; then
   _required_bins+=("curl" "jq")
@@ -1449,11 +2096,11 @@ log "App output dir ....: $OUTPUT_APP_DIR"
     log "  Properties (XML)...: $FINAL_PROPS"
   else
   # Ensure variables are exported so envsubst can see them
-  export APPMANAGE_BIN APPMANAGE_BIN_FOLDER DOMAIN APP_NAME ADMIN_URL ADMIN_USER ADMIN_PASS EAR_PATH PROP_XML_PATH
-  EXPORT_EAR_CMD="$(envsubst <<<"$APPMANAGE_EXPORT_EAR_TMPL")"
+  # ADMIN_PASS is passed inline to envsubst only — not exported to the global environment
+  export APPMANAGE_BIN APPMANAGE_BIN_FOLDER DOMAIN APP_NAME ADMIN_URL ADMIN_USER EAR_PATH PROP_XML_PATH
+  EXPORT_EAR_CMD="$(ADMIN_PASS="$ADMIN_PASS" envsubst <<<"$APPMANAGE_EXPORT_EAR_TMPL")"
   log "Exporting EAR with AppManage..."
-  log "CMD: $EXPORT_EAR_CMD"
-  # mask password in echo only; actual command uses it
+  log "CMD: ${EXPORT_EAR_CMD//"$ADMIN_PASS"/'***'}"
   if [[ "$DEBUG" == "true" ]]; then
     eval "$EXPORT_EAR_CMD"
   else
@@ -1470,22 +2117,56 @@ log "App output dir ....: $OUTPUT_APP_DIR"
   fi
 
   # Validate BW XML type; omit non-BW apps for all single-app modes
+  # In analyze-only mode the props XML is optional (analysis only needs the EAR)
   if ! is_bw_properties_xml "$FINAL_PROPS"; then
-    log "Properties XML indicates non-BW application. Omitting further processing."
-    summary "OMITTED: $APP_NAME (not BW deployment XML)"
-    exit 0
+    if [[ "$ANALYZE_ONLY" != "true" ]]; then
+      log "Properties XML indicates non-BW application. Omitting further processing."
+      summary "OMITTED: $APP_NAME (not BW deployment XML)"
+      exit 0
+    fi
+    log "Properties XML is not BW format; proceeding with EAR-only analysis (--analyze-only)"
   fi
+
+# =======================================
+# 2b) Migration Readiness Analysis
+# =======================================
+if [[ "$GENERATE_REPORT" == "true" && -z "$REPORT_FILE" ]]; then
+  REPORT_FILE="${OUTPUT_APP_DIR}/${SAFE_APP}-analysis-${TS}.html"
+fi
+# CLI_REPORT_FILE intentionally left empty if no path given → stdout
+analyze_ear_for_migration "$FINAL_EAR" "$TMP_DIR"
+# Always print to console, unless --report-cli with no path (it will print via generate_cli_report)
+if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
+  print_analysis_summary "$APP_NAME"
+fi
+if [[ "$GENERATE_REPORT" == "true" ]]; then
+  generate_html_report "$APP_NAME" "$REPORT_FILE"
+fi
+if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
+  generate_cli_report "$APP_NAME" "$CLI_REPORT_FILE"
+fi
+if [[ "${#ANALYSIS_BLOCKERS[@]}" -gt 0 && "$ALLOW_BLOCKERS" != "true" && "$ANALYZE_ONLY" != "true" ]]; then
+  printf 'Deployment blocked due to %d blocker(s). Use --allow-blockers to override.\n' "${#ANALYSIS_BLOCKERS[@]}" >&2
+  exit 1
+fi
+if [[ "$ANALYZE_ONLY" == "true" ]]; then
+  exit 0
+fi
 
 # =======================================
 # 3) Generate YAML from Global Variables
 # =======================================
 generate_yaml_from_global_vars "$FINAL_PROPS" "$PROPS_YAML"
-# Update Helm values.yaml with the generated variables (in-place on $VALUES_FILE)
-update_values_yaml "$VALUES_FILE" "$PROPS_YAML"
-# Also set appConfig.tags in the base values before copying
-set_values_appconfig_tags "$VALUES_FILE" "$APP_NAME"
-# Save a copy of the modified values.yaml into the per-app output folder
-cp -f "$VALUES_FILE" "$OUT_VALUES"
+# Start from an untouched copy of the template for per-app customization
+if [[ -f "$VALUES_FILE" ]]; then
+  cp -f "$VALUES_FILE" "$OUT_VALUES"
+else
+  rm -f "$OUT_VALUES"
+fi
+# Update Helm values.yaml with the generated variables in the working copy only
+update_values_yaml "$OUT_VALUES" "$PROPS_YAML"
+# Also set appConfig.tags in the working copy
+set_values_appconfig_tags "$OUT_VALUES" "$APP_NAME"
 
 # Ensure fullnameOverride uses only the basename (no folder parts)
 app_basename="${APP_NAME%/}"; app_basename="${app_basename##*/}"
