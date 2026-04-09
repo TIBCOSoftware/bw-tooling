@@ -993,7 +993,7 @@ batch_process_app() {
 
   # If offline export, stop here
   if [[ "$OFFLINE_EXPORT" == "true" ]]; then
-    add_report_row "$app_disp" "UPLOADED" "offline"
+    add_report_row "$app_disp" "EXPORTED" "offline export only"
     return 0
   fi
 
@@ -1018,7 +1018,7 @@ batch_process_app() {
   # Optional deployment for batch if platform desired
   if [[ "$OFFLINE_EXPORT" == "true" ]]; then
     log "[${app_disp}] offline: skipping deployment."
-    add_report_row "$app_disp" "UPLOADED" "offline"
+    add_report_row "$app_disp" "EXPORTED" "offline export only"
     return 0
   fi
 
@@ -1059,7 +1059,7 @@ batch_process_app() {
 
   # No platform env provided; skip deployment
   log "[${app_disp}] No --platform supplied; skipping deployment."
-  add_report_row "$app_disp" "UPLOADED" "skipped deployment (no --platform)"
+  add_report_row "$app_disp" "EXPORTED" "no --platform provided"
   CURRENT_APP=""
 }
 
