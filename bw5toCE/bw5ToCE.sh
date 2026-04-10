@@ -1954,7 +1954,9 @@ batch_process_app() {
 deploy_offline_from_output() {
   # Iterates output/* and deploys using Platform API with the most recent EAR and per-app values.
   # If an app name is provided (first arg), only deploy that app.
-  require_bin curl; require_bin jq
+  if [[ "${ANALYZE_ONLY:-false}" != "true" ]]; then
+    require_bin curl; require_bin jq
+  fi
   shopt -s nullglob
   # Accept optional single app filter; safe with set -u
   local app_filter="${1-}"
