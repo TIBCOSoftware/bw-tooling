@@ -11,6 +11,7 @@ setup() {
   ANALYSIS_BLOCKERS=()
   ANALYSIS_WARNINGS=()
   ANALYSIS_NOTES=()
+  ANALYSIS_QUALITY=()
 }
 
 # ─── clean EAR ────────────────────────────────────────────────────────────────
@@ -346,4 +347,97 @@ XML
   ANALYSIS_WARNINGS=()
   _analysis_scan_shared_resources "$res_dir"
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
+}
+
+# ─── Best Practices: shared connection resources ──────────────────────────────
+
+@test "hardcoded_sharedhttp.ear: hardcoded host flags QUALITY item" {
+  ear="$(require_fixture "hardcoded_sharedhttp")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  assert_contains "$all_q" "Hard-coded Host"
+}
+
+@test "hardcoded_sharedhttp.ear: hardcoded port flags QUALITY item" {
+  ear="$(require_fixture "hardcoded_sharedhttp")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  assert_contains "$all_q" "Hard-coded Port"
+}
+
+@test "hardcoded_sharedhttp.ear: no portability blockers or warnings" {
+  ear="$(require_fixture "hardcoded_sharedhttp")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+  [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
+}
+
+@test "safe_sharedhttp.ear: GV-referenced host+port produce no QUALITY items" {
+  ear="$(require_fixture "safe_sharedhttp")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  [[ "$all_q" != *"Hard-coded Host"* ]]
+  [[ "$all_q" != *"Hard-coded Port"* ]]
+}
+
+@test "hardcoded_sharedjdbc.ear: hardcoded URL, user, and password all flagged" {
+  ear="$(require_fixture "hardcoded_sharedjdbc")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  assert_contains "$all_q" "Hard-coded URL — Shared JDBC"
+  assert_contains "$all_q" "Hard-coded User — Shared JDBC"
+  assert_contains "$all_q" "Hard-coded Password — Shared JDBC"
+}
+
+@test "hardcoded_sharedjms.ear: hardcoded URL, user, and password all flagged" {
+  ear="$(require_fixture "hardcoded_sharedjms")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  assert_contains "$all_q" "Hard-coded URL — Shared JMS"
+  assert_contains "$all_q" "Hard-coded User — Shared JMS"
+  assert_contains "$all_q" "Hard-coded Password — Shared JMS"
+}
+
+# ─── Best Practices: process-level ───────────────────────────────────────────
+
+@test "render_xml_pretty.ear: render-xml pretty-print is QUALITY item" {
+  ear="$(require_fixture "render_xml_pretty")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  assert_contains "$all_q" "render-xml"
+}
+
+@test "render_xml_pretty.ear: no portability blockers for render-xml" {
+  ear="$(require_fixture "render_xml_pretty")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+}
+
+@test "render_xml_pretty.ear: has description — no description QUALITY item" {
+  ear="$(require_fixture "render_xml_pretty")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  [[ "$all_q" != *"No Process Description"* ]]
+}
+
+@test "clean.ear: missing description flags No Process Description QUALITY item" {
+  ear="$(require_fixture "clean")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_q="${ANALYSIS_QUALITY[*]}"
+  assert_contains "$all_q" "No Process Description"
+}
+
+@test "print_analysis_summary: shows BEST PRACTICES section when quality items present" {
+  ANALYSIS_BLOCKERS=(); ANALYSIS_WARNINGS=(); ANALYSIS_NOTES=()
+  ANALYSIS_QUALITY=("main.process"$'\t'"No Process Description"$'\t'"Add a description")
+  output="$(print_analysis_summary "TestApp")"
+  assert_contains "$output" "BEST PRACTICES"
+  assert_contains "$output" "No Process Description"
+}
+
+@test "print_analysis_summary: quality items do not change READY status" {
+  ANALYSIS_BLOCKERS=(); ANALYSIS_WARNINGS=(); ANALYSIS_NOTES=()
+  ANALYSIS_QUALITY=("main.process"$'\t'"No Process Description"$'\t'"Add a description")
+  output="$(print_analysis_summary "TestApp")"
+  assert_contains "$output" "READY"
 }

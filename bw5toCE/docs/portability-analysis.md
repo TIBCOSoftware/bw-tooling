@@ -42,6 +42,9 @@ By default, blockers stop the deployment. Pass `--allow-blockers` to override an
 | **BLOCKER** | `[B]` | Functionality requires attention before transitioning to TIBCO BusinessWorks 5 (Containers) |
 | **WARNING** | `[W]` | Behavior differs from BW5 Classic; review and test carefully in the target environment |
 | **NOTE** | `[N]` | Architectural consideration for cloud-native deployment; review and validate design |
+| **QUALITY** | `[Q]` | Best-practice improvement aligned with Sonar BW5 rules; advisory only |
+
+Quality findings are advisory. They appear in a dedicated **Best Practices** section and do not change the READY/BLOCKED/CAUTION/REVIEW portability status.
 
 ## Checks Reference
 
@@ -273,14 +276,39 @@ The following plugins and adapters are **not yet available** in the current vers
 
 JD Edwards (`adjdexe`), PeopleSoft (`adpsft8`), OSIsoft PI (`adpi`), Tuxedo (`adtuxedo`), and EDI have no entries in `PluginActivityMap` — they are pure Adapter SDK resources detected via adapter descriptor files.
 
+## Best Practices (Quality Checks)
+
+These checks are derived from the [TIBCO sonar-bw](https://github.com/TIBCOSoftware/sonar-bw) Sonar plugin rules. They are advisory and do not affect the portability status.
+
+### Process Quality
+
+| Check | Trigger | Recommendation |
+|---|---|---|
+| **No Process Description** | `<pd:description>` is missing or empty | Add a meaningful description to improve maintainability |
+| **No Catch-All Error Handler** | No `<catchAll>true</catchAll>` found in any scope | Add a catch-all handler to gracefully capture unexpected exceptions |
+| **render-xml with Pretty-Print** | `tib:render-xml()` third argument is `true()` | Disable pretty-printing in production — it adds unnecessary whitespace and CPU overhead |
+
+### Shared Connection Resources
+
+Hard-coded values in shared connection resources cannot be overridden per environment without rebuilding the EAR. Use Global Variable references (`%%GV_NAME%%`) so that connection details can be injected at deployment time via environment variables or Kubernetes Secrets.
+
+| Resource type | Fields checked |
+|---|---|
+| `.sharedhttp` | `Host`, `Port` |
+| `.sharedjdbc` | `location` (JDBC URL), `user`, `password` |
+| `.jms` | `ProviderURL`, `username`, `password` |
+
 ## How the Analysis Works
 
 1. The EAR is extracted to a temp directory
 2. `TIBCO.xml` is inspected for `BWDatabase*` global variables with a "Checkpoint Data Repository" description to infer checkpoint storage type
 3. Each `.par` (process archive) is extracted; every `.process` XML file is scanned:
    - Activity types are extracted via `<pd:type>TYPE</pd:type>` elements
-   - Checks run against server-mode HTTP Basic Auth, unsupported types, wait/notify, checkpoints, shared variables, file I/O, RV, FT groups
+   - Portability checks: server-mode HTTP Basic Auth, unsupported types, wait/notify, checkpoints, shared variables, file I/O, RV, FT groups, engine commands, external commands
+   - Quality checks: process description, catch-all handler, render-xml pretty-print
    - Every `.serviceagent` resource file is also scanned for server-mode HTTP Basic Auth (`useBasicAuthentication=true`)
-4. Each `.sar` (shared archive) is extracted; `.moduleSharedVariable` files are inspected for persistence configuration
-5. Results are collected in `ANALYSIS_BLOCKERS`, `ANALYSIS_WARNINGS`, `ANALYSIS_NOTES` arrays
-6. Summary is printed; HTML and/or CLI reports are generated if requested
+   - Connection resource files (`.sharedhttp`, `.sharedjdbc`, `.jms`) are scanned for hard-coded values
+4. Each `.sar` (shared archive) is extracted; `.moduleSharedVariable` files are inspected for persistence configuration; connection resources are also scanned
+5. Each `.aar` (adapter archive) at the EAR root is inspected for unsupported adapter names
+6. Results are collected in `ANALYSIS_BLOCKERS`, `ANALYSIS_WARNINGS`, `ANALYSIS_NOTES`, `ANALYSIS_QUALITY` arrays
+7. Summary is printed; HTML and/or CLI reports are generated if requested

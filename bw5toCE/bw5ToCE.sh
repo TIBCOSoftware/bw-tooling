@@ -525,6 +525,7 @@ print_batch_report() {
 ANALYSIS_BLOCKERS=()
 ANALYSIS_WARNINGS=()
 ANALYSIS_NOTES=()
+ANALYSIS_QUALITY=()
 
 # Supported core BW5 activity type prefixes (always in the base image)
 BWCE_CORE_PREFIXES=(
@@ -653,9 +654,18 @@ _analysis_known_unsupported_label() {
   return 1
 }
 
-_analysis_add_blocker() { ANALYSIS_BLOCKERS+=("$1"$'\t'"$2"$'\t'"$3"); }
-_analysis_add_warning() { ANALYSIS_WARNINGS+=("$1"$'\t'"$2"$'\t'"$3"); }
-_analysis_add_note()    { ANALYSIS_NOTES+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_blocker()  { ANALYSIS_BLOCKERS+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_warning()  { ANALYSIS_WARNINGS+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_note()     { ANALYSIS_NOTES+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_quality()  { ANALYSIS_QUALITY+=("$1"$'\t'"$2"$'\t'"$3"); }
+
+# Returns the trimmed value when it looks hardcoded (non-empty, no GV reference).
+# BW5 Global Variable references use the %%VAR_NAME%% syntax in resource files.
+_analysis_hardcoded_val() {
+  local val
+  val=$(printf '%s' "$1" | tr -d '[:space:]')
+  if [[ -n "$val" && "$val" != *'%%'* ]]; then printf '%s' "$val"; fi
+}
 
 _analysis_is_supported_type() {
   local t="$1" p
@@ -797,6 +807,122 @@ _analysis_scan_process() {
     _analysis_add_note "$fname" "Fault Tolerant Group — Cloud-Native HA" \
       "Fault Tolerant Group reference detected. TIBCO BusinessWorks 5 (Containers) leverages Kubernetes built-in high availability through Deployment replicas, health probes, and self-healing — providing equivalent resilience natively. Review your design to take full advantage of these cloud-native HA capabilities."
   fi
+
+  # ── Best Practice checks ──────────────────────────────────────────────────
+
+  # --- QUALITY: No process description ---
+  local proc_desc
+  proc_desc=$(grep -oE '<pd:description>[^<]*</pd:description>' "$pfile" 2>/dev/null \
+    | sed 's/<pd:description>//g; s/<\/pd:description>//g' | head -1 | tr -d '[:space:]' || true)
+  if [[ -z "$proc_desc" ]]; then
+    _analysis_add_quality "$fname" "No Process Description" \
+      "The process has no description. Adding a meaningful description improves maintainability and helps teams quickly understand the process purpose and business context."
+  fi
+
+  # --- QUALITY: No catch-all error handler ---
+  if ! grep -qE '<catchAll>true</catchAll>' "$pfile" 2>/dev/null; then
+    _analysis_add_quality "$fname" "No Catch-All Error Handler" \
+      "The process does not include a catch-all error handler. Adding one ensures unexpected exceptions are captured and handled gracefully, improving reliability and observability in production."
+  fi
+
+  # --- QUALITY: render-xml with pretty-print ---
+  if grep -qE 'tib:render-xml\s*\([^)]+,[^)]+,\s*true\(' "$pfile" 2>/dev/null; then
+    _analysis_add_quality "$fname" "render-xml with Pretty-Print" \
+      "A render-xml() call uses the pretty-print option (third argument true()). Pretty-printing adds whitespace for readability but has a measurable performance overhead. Disable it in production processes to reduce CPU usage."
+  fi
+}
+
+# ── Best Practice: shared connection resource scanning ────────────────────────
+# Each function receives the path to a single resource file and adds
+# ANALYSIS_QUALITY entries for any hardcoded (non-GV) connection values.
+
+_analysis_scan_sharedhttp() {
+  local rfile="$1"
+  local fname
+  fname="$(basename "$rfile")"
+  local host port hv pv
+  host=$(grep -oE '<Host>[^<]+</Host>' "$rfile" 2>/dev/null \
+    | sed 's/<Host>//g; s/<\/Host>//g' | head -1 || true)
+  port=$(grep -oE '<Port>[^<]+</Port>' "$rfile" 2>/dev/null \
+    | sed 's/<Port>//g; s/<\/Port>//g' | head -1 || true)
+  hv=$(_analysis_hardcoded_val "$host")
+  pv=$(_analysis_hardcoded_val "$port")
+  if [[ -n "$hv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded Host — Shared HTTP" \
+      "The host '$hv' is hard-coded in the Shared HTTP resource. Use a Global Variable (%%GV_NAME%%) to allow environment-specific configuration without rebuilding the EAR."
+  fi
+  if [[ -n "$pv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded Port — Shared HTTP" \
+      "The port '$pv' is hard-coded in the Shared HTTP resource. Use a Global Variable (%%GV_NAME%%) to allow environment-specific configuration without rebuilding the EAR."
+  fi
+}
+
+_analysis_scan_sharedjdbc() {
+  local rfile="$1"
+  local fname
+  fname="$(basename "$rfile")"
+  local url user pass uv xv pv
+  url=$(grep -oE '<location>[^<]+</location>' "$rfile" 2>/dev/null \
+    | sed 's/<location>//g; s/<\/location>//g' | head -1 || true)
+  user=$(grep -oE '<user>[^<]+</user>' "$rfile" 2>/dev/null \
+    | sed 's/<user>//g; s/<\/user>//g' | head -1 || true)
+  pass=$(grep -oE '<password>[^<]+</password>' "$rfile" 2>/dev/null \
+    | sed 's/<password>//g; s/<\/password>//g' | head -1 || true)
+  uv=$(_analysis_hardcoded_val "$url")
+  xv=$(_analysis_hardcoded_val "$user")
+  pv=$(_analysis_hardcoded_val "$pass")
+  if [[ -n "$uv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded URL — Shared JDBC" \
+      "The JDBC URL '$uv' is hard-coded in the Shared JDBC resource. Use a Global Variable to allow environment-specific configuration and seamless deployment across environments."
+  fi
+  if [[ -n "$xv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded User — Shared JDBC" \
+      "The database user is hard-coded in the Shared JDBC resource. Use a Global Variable to keep credentials out of the EAR and allow per-environment configuration."
+  fi
+  if [[ -n "$pv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded Password — Shared JDBC" \
+      "A database password is hard-coded in the Shared JDBC resource. Use a Global Variable and inject the value securely at runtime via Kubernetes Secrets or a secrets manager."
+  fi
+}
+
+_analysis_scan_sharedjms() {
+  local rfile="$1"
+  local fname
+  fname="$(basename "$rfile")"
+  local url user pass uv xv pv
+  url=$(grep -oE '<ProviderURL>[^<]+</ProviderURL>' "$rfile" 2>/dev/null \
+    | sed 's/<ProviderURL>//g; s/<\/ProviderURL>//g' | head -1 || true)
+  user=$(grep -oE '<username>[^<]+</username>' "$rfile" 2>/dev/null \
+    | sed 's/<username>//g; s/<\/username>//g' | head -1 || true)
+  pass=$(grep -oE '<password>[^<]+</password>' "$rfile" 2>/dev/null \
+    | sed 's/<password>//g; s/<\/password>//g' | head -1 || true)
+  uv=$(_analysis_hardcoded_val "$url")
+  xv=$(_analysis_hardcoded_val "$user")
+  pv=$(_analysis_hardcoded_val "$pass")
+  if [[ -n "$uv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded URL — Shared JMS" \
+      "The JMS provider URL '$uv' is hard-coded in the Shared JMS resource. Use a Global Variable to allow environment-specific configuration without rebuilding the EAR."
+  fi
+  if [[ -n "$xv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded User — Shared JMS" \
+      "The JMS user is hard-coded in the Shared JMS resource. Use a Global Variable to keep credentials out of the EAR and allow per-environment configuration."
+  fi
+  if [[ -n "$pv" ]]; then
+    _analysis_add_quality "$fname" "Hard-coded Password — Shared JMS" \
+      "A JMS password is hard-coded in the Shared JMS resource. Use a Global Variable and inject the value securely at runtime via Kubernetes Secrets or a secrets manager."
+  fi
+}
+
+# Scan all connection resource files (.sharedhttp, .sharedjdbc, .jms) in a directory.
+_analysis_scan_connections() {
+  local dir="$1"
+  local f
+  while IFS= read -r -d '' f; do _analysis_scan_sharedhttp "$f"; done \
+    < <(find "$dir" -name "*.sharedhttp" -print0 2>/dev/null)
+  while IFS= read -r -d '' f; do _analysis_scan_sharedjdbc "$f"; done \
+    < <(find "$dir" -name "*.sharedjdbc" -print0 2>/dev/null)
+  while IFS= read -r -d '' f; do _analysis_scan_sharedjms "$f"; done \
+    < <(find "$dir" -name "*.jms" -print0 2>/dev/null)
 }
 
 # Scan all shared resource files extracted from a SAR
@@ -886,6 +1012,7 @@ analyze_ear_for_portability() {
   ANALYSIS_BLOCKERS=()
   ANALYSIS_WARNINGS=()
   ANALYSIS_NOTES=()
+  ANALYSIS_QUALITY=()
 
   require_bin unzip
 
@@ -912,6 +1039,7 @@ analyze_ear_for_portability() {
     while IFS= read -r -d '' agent_file; do
       _analysis_scan_service_agent "$agent_file"
     done < <(find "$par_dir" -name "*.serviceagent" -print0 2>/dev/null)
+    _analysis_scan_connections "$par_dir"
   done < <(find "$ear_dir" -name "*.par" -print0 2>/dev/null)
 
   # Process each AAR (adapter archive) at the EAR root
@@ -929,9 +1057,10 @@ analyze_ear_for_portability() {
     unzip -qo "$sar_file" -d "$sar_dir" 2>/dev/null || continue
     log "Analysis: scanning shared resources in $(basename "$sar_file")"
     _analysis_scan_shared_resources "$sar_dir"
+    _analysis_scan_connections "$sar_dir"
   done < <(find "$ear_dir" -name "*.sar" -print0 2>/dev/null)
 
-  log "Analysis complete: ${#ANALYSIS_BLOCKERS[@]} blockers, ${#ANALYSIS_WARNINGS[@]} warnings, ${#ANALYSIS_NOTES[@]} notes"
+  log "Analysis complete: ${#ANALYSIS_BLOCKERS[@]} blockers, ${#ANALYSIS_WARNINGS[@]} warnings, ${#ANALYSIS_NOTES[@]} notes, ${#ANALYSIS_QUALITY[@]} quality"
 }
 
 print_analysis_summary() {
@@ -939,6 +1068,7 @@ print_analysis_summary() {
   local b_count=${#ANALYSIS_BLOCKERS[@]}
   local w_count=${#ANALYSIS_WARNINGS[@]}
   local n_count=${#ANALYSIS_NOTES[@]}
+  local q_count=${#ANALYSIS_QUALITY[@]}
   local hr
   hr="$(repeat_char '─' 72)"
 
@@ -948,18 +1078,23 @@ print_analysis_summary() {
 
   if (( b_count == 0 && w_count == 0 && n_count == 0 )); then
     printf ' STATUS: READY — No portability considerations detected\n'
-    printf '%s\n\n' "$hr"
-    return 0
-  fi
-
-  if (( b_count > 0 )); then
+  elif (( b_count > 0 )); then
     printf ' STATUS: BLOCKED — %d blocker(s) must be resolved before transitioning\n' "$b_count"
   elif (( w_count > 0 )); then
     printf ' STATUS: CAUTION — %d behavior change(s) to review\n' "$w_count"
   else
     printf ' STATUS: REVIEW — %d note(s) for cloud-native adaptation\n' "$n_count"
   fi
+
+  if (( q_count > 0 )); then
+    printf ' QUALITY: %d best-practice suggestion(s) — see Best Practices section\n' "$q_count"
+  fi
   printf '%s\n' "$hr"
+
+  if (( b_count == 0 && w_count == 0 && n_count == 0 && q_count == 0 )); then
+    printf '\n'
+    return 0
+  fi
 
   local entry file item desc
 
@@ -984,6 +1119,14 @@ print_analysis_summary() {
     for entry in "${ANALYSIS_NOTES[@]}"; do
       IFS=$'\t' read -r file item desc <<< "$entry"
       printf '  [N] %-40s  %s\n      %s\n\n' "$item" "$file" "$desc"
+    done
+  fi
+
+  if (( q_count > 0 )); then
+    printf ' BEST PRACTICES (%d) — quality improvements for cloud-native deployment:\n\n' "$q_count"
+    for entry in "${ANALYSIS_QUALITY[@]}"; do
+      IFS=$'\t' read -r file item desc <<< "$entry"
+      printf '  [Q] %-40s  %s\n      %s\n\n' "$item" "$file" "$desc"
     done
   fi
 
@@ -1014,6 +1157,7 @@ generate_html_report() {
   local b_count=${#ANALYSIS_BLOCKERS[@]}
   local w_count=${#ANALYSIS_WARNINGS[@]}
   local n_count=${#ANALYSIS_NOTES[@]}
+  local q_count=${#ANALYSIS_QUALITY[@]}
   local ts
   ts="$(date '+%Y-%m-%d %H:%M:%S')"
 
@@ -1042,16 +1186,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0
 .caution{background:#fef9c3;color:#854d0e}
 .review{background:#dbeafe;color:#1e40af}
 .ready{background:#d1fadf;color:#166534}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
 .card{background:#fff;border-radius:8px;padding:16px 20px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
 .num{font-size:2.2rem;font-weight:700}
-.num.b{color:#dc2626}.num.w{color:#d97706}.num.n{color:#2563eb}
+.num.b{color:#dc2626}.num.w{color:#d97706}.num.n{color:#2563eb}.num.q{color:#7c3aed}
 .lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;opacity:.6;margin-top:4px}
 section{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:20px;overflow:hidden}
 h2{margin:0;padding:14px 20px;font-size:.95rem;font-weight:600}
 h2.bh{background:#fee2e2;color:#991b1b}
 h2.wh{background:#fef9c3;color:#92400e}
 h2.nh{background:#eff6ff;color:#1e40af}
+h2.qh{background:#f3e8ff;color:#5b21b6}
 h2.oh{background:#d1fadf;color:#166534}
 table{width:100%;border-collapse:collapse;font-size:.88rem}
 th{background:#f8fafc;padding:10px 16px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0}
@@ -1060,6 +1205,7 @@ tr:last-child td{border-bottom:none}
 .bi td:first-child{color:#dc2626;font-weight:600}
 .wi td:first-child{color:#b45309;font-weight:600}
 .ni td:first-child{color:#1d4ed8;font-weight:600}
+.qi td:first-child{color:#6d28d9;font-weight:600}
 .foot{margin-top:32px;font-size:.78rem;color:#999;text-align:center;padding-bottom:24px}
 </style>
 </head>
@@ -1074,6 +1220,7 @@ tr:last-child td{border-bottom:none}
     <div class="card"><div class="num b">${b_count}</div><div class="lbl">Blockers</div></div>
     <div class="card"><div class="num w">${w_count}</div><div class="lbl">Warnings</div></div>
     <div class="card"><div class="num n">${n_count}</div><div class="lbl">Notes</div></div>
+    <div class="card"><div class="num q">${q_count}</div><div class="lbl">Best Practices</div></div>
   </div>
 HTMLEOF
 
@@ -1096,8 +1243,9 @@ HTMLEOF
   _append_section ANALYSIS_BLOCKERS "bi" "bh" "&#10006; Blockers — must resolve before transitioning (${b_count})"
   _append_section ANALYSIS_WARNINGS "wi" "wh" "&#9888; Warnings — behavior differs in containers (${w_count})"
   _append_section ANALYSIS_NOTES    "ni" "nh" "&#8505; Notes — cloud-native considerations (${n_count})"
+  _append_section ANALYSIS_QUALITY  "qi" "qh" "&#10024; Best Practices — quality improvements for cloud-native deployment (${q_count})"
 
-  if (( b_count == 0 && w_count == 0 && n_count == 0 )); then
+  if (( b_count == 0 && w_count == 0 && n_count == 0 && q_count == 0 )); then
     printf '<section><h2 class="oh">&#10003; Ready — no portability considerations detected</h2>' >> "$report_file"
     printf '<p style="padding:16px 20px;margin:0">This application appears ready for containerized deployment.</p></section>\n' >> "$report_file"
   fi

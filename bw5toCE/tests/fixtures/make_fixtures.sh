@@ -65,6 +65,9 @@ make_ear() {
   mkdir -p "$par_tmp"
   cp "$par_dir"/*.process "$par_tmp/" 2>/dev/null || true
   cp "$par_dir"/*.serviceagent "$par_tmp/" 2>/dev/null || true
+  cp "$par_dir"/*.sharedhttp "$par_tmp/" 2>/dev/null || true
+  cp "$par_dir"/*.sharedjdbc "$par_tmp/" 2>/dev/null || true
+  cp "$par_dir"/*.jms "$par_tmp/" 2>/dev/null || true
   (cd "$par_tmp" && zip -qr "$tmp/${name}.par" .)
 
   # Build EAR
@@ -503,6 +506,130 @@ cat > "$PROC_DIR/main.process" <<'EOF'
 </pd:ProcessDefinition>
 EOF
 make_ear "external_command" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process
+
+# ------------------------------------------------------------------ #
+# Fixture: hardcoded_sharedhttp.ear — sharedhttp with hardcoded host+port
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>Start</pd:name>
+    <pd:type>com.tibco.pe.core.OnStartupEventSource</pd:type>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+cat > "$PROC_DIR/MyHttpConn.sharedhttp" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<httpSharedChannel>
+  <config>
+    <Host>192.168.1.100</Host>
+    <Port>8080</Port>
+  </config>
+</httpSharedChannel>
+EOF
+make_ear "hardcoded_sharedhttp" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process "$PROC_DIR"/*.sharedhttp
+
+# ------------------------------------------------------------------ #
+# Fixture: safe_sharedhttp.ear — sharedhttp using GV references (no warning)
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>Start</pd:name>
+    <pd:type>com.tibco.pe.core.OnStartupEventSource</pd:type>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+cat > "$PROC_DIR/MyHttpConn.sharedhttp" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<httpSharedChannel>
+  <config>
+    <Host>%%myapp.http.host%%</Host>
+    <Port>%%myapp.http.port%%</Port>
+  </config>
+</httpSharedChannel>
+EOF
+make_ear "safe_sharedhttp" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process "$PROC_DIR"/*.sharedhttp
+
+# ------------------------------------------------------------------ #
+# Fixture: hardcoded_sharedjdbc.ear — sharedjdbc with hardcoded URL/user/pass
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>Start</pd:name>
+    <pd:type>com.tibco.pe.core.OnStartupEventSource</pd:type>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+cat > "$PROC_DIR/MyJDBC.sharedjdbc" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<jdbcSharedResource>
+  <config>
+    <location>jdbc:oracle:thin:@mydb.corp.com:1521:ORCL</location>
+    <user>app_user</user>
+    <password>s3cr3t</password>
+  </config>
+</jdbcSharedResource>
+EOF
+make_ear "hardcoded_sharedjdbc" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process "$PROC_DIR"/*.sharedjdbc
+
+# ------------------------------------------------------------------ #
+# Fixture: hardcoded_sharedjms.ear — jms with hardcoded URL/user/pass
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>Start</pd:name>
+    <pd:type>com.tibco.pe.core.OnStartupEventSource</pd:type>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+cat > "$PROC_DIR/MyJMS.jms" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<JMSConnection>
+  <NamingEnvironment>
+    <ProviderURL>tibjmsnaming://ems.corp.com:7222</ProviderURL>
+  </NamingEnvironment>
+  <ConnectionAttributes>
+    <username>jms_user</username>
+    <password>jms_pass</password>
+  </ConnectionAttributes>
+</JMSConnection>
+EOF
+make_ear "hardcoded_sharedjms" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process "$PROC_DIR"/*.jms
+
+# ------------------------------------------------------------------ #
+# Fixture: render_xml_pretty.ear — render-xml with pretty-print (QUALITY)
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:description>A process that uses render-xml pretty-print</pd:description>
+  <pd:activity>
+    <pd:name>Mapper</pd:name>
+    <pd:type>com.tibco.plugin.mapper.MapperActivity</pd:type>
+    <config>
+      <element>tib:render-xml($input/root, "UTF-8", true()</element>
+    </config>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+make_ear "render_xml_pretty" "$PROC_DIR"
 rm -f "$PROC_DIR"/*.process
 
 echo "All fixtures created in $FIXTURES_DIR"
