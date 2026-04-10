@@ -42,7 +42,7 @@ By default, blockers stop the deployment. Pass `--allow-blockers` to override an
 | **BLOCKER** | `[B]` | Functionality requires attention before transitioning to TIBCO BusinessWorks 5 (Containers) |
 | **WARNING** | `[W]` | Behavior differs from BW5 Classic; review and test carefully in the target environment |
 | **NOTE** | `[N]` | Architectural consideration for cloud-native deployment; review and validate design |
-| **QUALITY** | `[Q]` | Best-practice improvement aligned with Sonar BW5 rules; advisory only |
+| **QUALITY** | `[Q]` | Best-practice improvement for cloud-native deployment; advisory only |
 
 Quality findings are advisory. They appear in a dedicated **Best Practices** section and do not change the READY/BLOCKED/CAUTION/REVIEW portability status.
 
@@ -278,7 +278,7 @@ JD Edwards (`adjdexe`), PeopleSoft (`adpsft8`), OSIsoft PI (`adpi`), Tuxedo (`ad
 
 ## Best Practices (Quality Checks)
 
-These checks are derived from the [TIBCO sonar-bw](https://github.com/TIBCOSoftware/sonar-bw) Sonar plugin rules. They are advisory and do not affect the portability status.
+These checks are advisory and do not affect the portability status.
 
 ### Process Quality
 
