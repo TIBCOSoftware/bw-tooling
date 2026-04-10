@@ -445,15 +445,17 @@ declare -a BATCH_REPORT_ROWS=()
 declare -a BATCH_NAMES=()
 declare -a BATCH_STATUS=()
 declare -a BATCH_NOTES=()
+declare -a BATCH_HTML_LINKS=()   # relative path to individual HTML report; empty if not generated
 declare -i BATCH_COUNT=0
 LAST_ERROR_DETAILS=""
 PLATFORM_BUILD_ID=""
 
 add_report_row() {
-  local name="$1" status="$2" notes="$3"
+  local name="$1" status="$2" notes="$3" html_link="${4:-}"
   BATCH_NAMES+=("$name")
   BATCH_STATUS+=("$status")
   BATCH_NOTES+=("$notes")
+  BATCH_HTML_LINKS+=("$html_link")
   BATCH_COUNT+=1
 }
 
@@ -481,6 +483,7 @@ print_batch_report() {
   local border="+$(repeat_char '-' $((name_w+2)))+$(repeat_char '-' $((status_w+2)))+$(repeat_char '-' $((notes_w+2)))+"
   local fmt="| %-$(printf %s "$name_w")s | %-$(printf %s "$status_w")s | %-$(printf %s "$notes_w")s |\n"
   local out_file="${OUTPUT_DIR}/batch-report-${domain}-${ts}.txt"
+  local html_file="${OUTPUT_DIR}/batch-report-${domain}-${ts}.html"
 
   # Truncate file
   : > "$out_file"
@@ -515,6 +518,111 @@ print_batch_report() {
   printf '%s\n' "$border"
   printf '%s\n' "$border" >> "$out_file"
   log "Batch report saved: $out_file"
+  generate_batch_html_report "$domain" "$ts" "$html_file"
+}
+
+generate_batch_html_report() {
+  local domain="$1" ts="$2" out_file="$3"
+  local ts_fmt
+  ts_fmt="$(date '+%Y-%m-%d %H:%M:%S')"
+
+  # Count totals
+  local total=$BATCH_COUNT r=0 c=0 v=0 b=0 s=0 e=0 o=0
+  local i
+  for (( i=0; i<BATCH_COUNT; i++ )); do
+    case "${BATCH_STATUS[$i]}" in
+      READY)    (( r++ )) ;;
+      CAUTION)  (( c++ )) ;;
+      REVIEW)   (( v++ )) ;;
+      BLOCKED)  (( b++ )) ;;
+      DEPLOYED) (( r++ )) ;;
+      EXPORTED|UPLOADED) (( s++ )) ;;
+      SKIPPED|OMITTED)   (( o++ )) ;;
+      ERROR)    (( e++ )) ;;
+    esac
+  done
+
+  cat > "$out_file" <<BATCHHTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BW5 Platform Portability — Batch Summary: ${domain}</title>
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;background:#f5f7fa;color:#222}
+.hdr{background:#1a2b4a;color:#fff;padding:24px 32px}
+.hdr h1{margin:0 0 4px;font-size:1.4rem;font-weight:600}
+.hdr p{margin:0;opacity:.7;font-size:.85rem}
+.body{padding:24px 32px;max-width:1200px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+.card{background:#fff;border-radius:8px;padding:14px 18px;box-shadow:0 1px 3px rgba(0,0,0,.1);text-align:center}
+.num{font-size:2rem;font-weight:700}
+.num.ok{color:#166534}.num.bl{color:#dc2626}.num.ca{color:#d97706}.num.er{color:#7f1d1d}
+.lbl{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;opacity:.6;margin-top:4px}
+section{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:20px;overflow:hidden}
+h2{margin:0;padding:14px 20px;font-size:.95rem;font-weight:600;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th{background:#f8fafc;padding:10px 16px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0}
+td{padding:10px 16px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:.8rem;font-weight:600}
+.s-READY,.s-DEPLOYED{background:#d1fae5;color:#065f46}
+.s-CAUTION{background:#fef3c7;color:#92400e}
+.s-REVIEW{background:#dbeafe;color:#1e40af}
+.s-BLOCKED{background:#fee2e2;color:#991b1b}
+.s-EXPORTED,.s-UPLOADED{background:#e0e7ff;color:#3730a3}
+.s-SKIPPED,.s-OMITTED{background:#f3f4f6;color:#6b7280}
+.s-ERROR{background:#fef2f2;color:#b91c1c}
+a{color:#1d4ed8;text-decoration:none}a:hover{text-decoration:underline}
+.foot{margin-top:32px;font-size:.78rem;color:#999;text-align:center;padding-bottom:24px}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <h1>BW5 Platform Portability — Batch Summary</h1>
+  <p>Domain: <strong>${domain}</strong> &nbsp;|&nbsp; ${total} application(s) &nbsp;|&nbsp; Generated: ${ts_fmt}</p>
+</div>
+<div class="body">
+  <div class="grid">
+    <div class="card"><div class="num ok">${r}</div><div class="lbl">Ready / Deployed</div></div>
+    <div class="card"><div class="num ca">${b}</div><div class="lbl">Blocked</div></div>
+    <div class="card"><div class="num ca" style="color:#d97706">${c}</div><div class="lbl">Caution / Review</div></div>
+    <div class="card"><div class="num er">${e}</div><div class="lbl">Errors / Skipped</div></div>
+  </div>
+  <section>
+    <h2>Applications (${total})</h2>
+    <table>
+      <tr><th>Application</th><th>Status</th><th>Notes</th><th>Report</th></tr>
+BATCHHTML
+
+  for (( i=0; i<BATCH_COUNT; i++ )); do
+    local name="${BATCH_NAMES[$i]}"
+    local status="${BATCH_STATUS[$i]}"
+    local notes="${BATCH_NOTES[$i]}"
+    local link="${BATCH_HTML_LINKS[$i]}"
+    local esc_name esc_notes link_cell
+    esc_name=$(_html_esc "$name")
+    esc_notes=$(_html_esc "$notes")
+    if [[ -n "$link" ]]; then
+      link_cell="<a href=\"$(_html_esc "$link")\">view report</a>"
+    else
+      link_cell="<span style=\"color:#9ca3af\">—</span>"
+    fi
+    printf '      <tr><td>%s</td><td><span class="badge s-%s">%s</span></td><td>%s</td><td>%s</td></tr>\n' \
+      "$esc_name" "$status" "$status" "$esc_notes" "$link_cell" >> "$out_file"
+  done
+
+  cat >> "$out_file" <<BATCHHTML
+    </table>
+  </section>
+  <div class="foot">Generated by bw5ToCE.sh v${VERSION} &nbsp;|&nbsp; TIBCO BusinessWorks 5 Platform Portability Toolkit</div>
+</div>
+</body>
+</html>
+BATCHHTML
+  printf 'Batch HTML summary: %s\n' "$out_file"
+  log "Batch HTML summary written: $out_file"
 }
 
 # ==========================================
@@ -1745,42 +1853,40 @@ batch_process_app() {
   fi
 
   # Platform Portability Analysis (per app in batch)
+  local _app_report_link=""   # relative path from output/ to this app's HTML report
   if [[ -f "$final_ear" ]]; then
     local batch_analysis_tmp
     batch_analysis_tmp="$(mktemp -d "${tmp_dir}/.analysis_${safe_app}.XXXX")"
     analyze_ear_for_portability "$final_ear" "$batch_analysis_tmp"
-    local b_c=${#ANALYSIS_BLOCKERS[@]} w_c=${#ANALYSIS_WARNINGS[@]} n_c=${#ANALYSIS_NOTES[@]}
-    if (( b_c > 0 || w_c > 0 || n_c > 0 )); then
-      local analysis_note="Analysis: ${b_c}B/${w_c}W/${n_c}N"
-      if [[ "$GENERATE_REPORT" == "true" ]]; then
-        local batch_report_path="${app_out_dir}/${safe_app}-analysis-${ts}.html"
-        generate_html_report "$app_disp" "$batch_report_path"
-        analysis_note="${analysis_note} (html: $(basename "$batch_report_path"))"
+    local b_c=${#ANALYSIS_BLOCKERS[@]} w_c=${#ANALYSIS_WARNINGS[@]} n_c=${#ANALYSIS_NOTES[@]} q_c=${#ANALYSIS_QUALITY[@]}
+    local analysis_note="Analysis: ${b_c}B/${w_c}W/${n_c}N/${q_c}Q"
+    if [[ "$GENERATE_REPORT" == "true" ]]; then
+      local batch_report_path="${app_out_dir}/${safe_app}-analysis-${ts}.html"
+      generate_html_report "$app_disp" "$batch_report_path"
+      _app_report_link="${safe_app}/$(basename "$batch_report_path")"
+    fi
+    if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
+      if [[ -n "$CLI_REPORT_FILE" ]]; then
+        local batch_cli_report_path="${app_out_dir}/${safe_app}-analysis-${ts}.txt"
+        generate_cli_report "$app_disp" "$batch_cli_report_path"
+      else
+        generate_cli_report "$app_disp"
       fi
-      if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
-        if [[ -n "$CLI_REPORT_FILE" ]]; then
-          local batch_cli_report_path="${app_out_dir}/${safe_app}-analysis-${ts}.txt"
-          generate_cli_report "$app_disp" "$batch_cli_report_path"
-          analysis_note="${analysis_note} (txt: $(basename "$batch_cli_report_path"))"
-        else
-          generate_cli_report "$app_disp"
-        fi
-      fi
-      if (( b_c > 0 )) && [[ "$ALLOW_BLOCKERS" != "true" ]]; then
-        add_report_row "$app_disp" "BLOCKED" "${analysis_note} — use --allow-blockers to override"
-        return 0
-      fi
+    fi
+    if (( b_c > 0 )) && [[ "$ALLOW_BLOCKERS" != "true" ]]; then
+      add_report_row "$app_disp" "BLOCKED" "${analysis_note} — use --allow-blockers to override" "$_app_report_link"
+      return 0
     fi
   fi
 
   # If offline export, stop here
   if [[ "$OFFLINE_EXPORT" == "true" ]]; then
-    add_report_row "$app_disp" "EXPORTED" "offline export only"
+    add_report_row "$app_disp" "EXPORTED" "offline export only" "$_app_report_link"
     return 0
   fi
 
   # Ensure properties XML exists for further steps
-  [[ -f "$final_props" ]] || { add_report_row "$app_disp" "ERROR" "Properties XML missing"; return 0; }
+  [[ -f "$final_props" ]] || { add_report_row "$app_disp" "ERROR" "Properties XML missing" "$_app_report_link"; return 0; }
 
   local props_yaml
   props_yaml="${app_out_dir}/${safe_app}-global-variables-${ts}.yaml"
@@ -1800,7 +1906,7 @@ batch_process_app() {
   # Optional deployment for batch if platform desired
   if [[ "$OFFLINE_EXPORT" == "true" ]]; then
     log "[${app_disp}] offline: skipping deployment."
-    add_report_row "$app_disp" "EXPORTED" "offline export only"
+    add_report_row "$app_disp" "EXPORTED" "offline export only" "$_app_report_link"
     return 0
   fi
 
@@ -1809,9 +1915,9 @@ batch_process_app() {
     if [[ "$NO_DEPLOY" == "true" ]]; then
       if platform_upload "$final_ear" >/dev/null; then
         log "[${app_disp}] no-deploy: uploaded only."
-        add_report_row "$app_disp" "UPLOADED" "no-deploy"
+        add_report_row "$app_disp" "UPLOADED" "no-deploy" "$_app_report_link"
       else
-        add_report_row "$app_disp" "ERROR" "$LAST_ERROR_DETAILS"
+        add_report_row "$app_disp" "ERROR" "$LAST_ERROR_DETAILS" "$_app_report_link"
       fi
       return 0
     fi
@@ -1819,20 +1925,20 @@ batch_process_app() {
       set_replica_count_zero "$out_values"
       if platform_upload_and_deploy "$final_ear" "$out_values" "$app_out_dir"; then
         log "[${app_disp}] no-start: deployed with replicaCount=0."
-        add_report_row "$app_disp" "DEPLOYED" "no-start (replicaCount=0)"
+        add_report_row "$app_disp" "DEPLOYED" "no-start (replicaCount=0)" "$_app_report_link"
       else
-        add_report_row "$app_disp" "ERROR" "$LAST_ERROR_DETAILS"
+        add_report_row "$app_disp" "ERROR" "$LAST_ERROR_DETAILS" "$_app_report_link"
       fi
       return 0
     fi
     if platform_upload_and_deploy "$final_ear" "$out_values" "$app_out_dir" "$app_base"; then
       log "[${app_disp}] Platform deployment done."
-      add_report_row "$app_disp" "DEPLOYED" ""
+      add_report_row "$app_disp" "DEPLOYED" "" "$_app_report_link"
     else case "$?" in
       2)
-        add_report_row "$app_disp" "OMITTED" "Application and version already deployed there" ;;
+        add_report_row "$app_disp" "OMITTED" "Application and version already deployed there" "$_app_report_link" ;;
       *)
-      add_report_row "$app_disp" "ERROR" "$LAST_ERROR_DETAILS"
+      add_report_row "$app_disp" "ERROR" "$LAST_ERROR_DETAILS" "$_app_report_link"
       ;;
     esac
     fi
@@ -1841,7 +1947,7 @@ batch_process_app() {
 
   # No platform env provided; skip deployment
   log "[${app_disp}] No --platform supplied; skipping deployment."
-  add_report_row "$app_disp" "EXPORTED" "no --platform provided"
+  add_report_row "$app_disp" "EXPORTED" "no --platform provided" "$_app_report_link"
   CURRENT_APP=""
 }
 
@@ -1897,9 +2003,11 @@ deploy_offline_from_output() {
       if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
         print_analysis_summary "$app_label"
       fi
+      local _ao_html_link=""
       if [[ "$GENERATE_REPORT" == "true" ]]; then
         local _html="${app_dir%/}/${app_label}-analysis-${TS}.html"
         generate_html_report "$app_label" "$_html"
+        _ao_html_link="${app_label}/$(basename "$_html")"
       fi
       if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
         if [[ -n "$CLI_REPORT_FILE" ]]; then
@@ -1909,11 +2017,12 @@ deploy_offline_from_output() {
           generate_cli_report "$app_label"
         fi
       fi
-      local _bc=${#ANALYSIS_BLOCKERS[@]} _wc=${#ANALYSIS_WARNINGS[@]} _nc=${#ANALYSIS_NOTES[@]}
-      if   (( _bc > 0 )); then add_report_row "$app_label" "BLOCKED" "${_bc}B/${_wc}W/${_nc}N"
-      elif (( _wc > 0 )); then add_report_row "$app_label" "CAUTION" "${_bc}B/${_wc}W/${_nc}N"
-      elif (( _nc > 0 )); then add_report_row "$app_label" "REVIEW"  "${_bc}B/${_wc}W/${_nc}N"
-      else                     add_report_row "$app_label" "READY"   ""
+      local _bc=${#ANALYSIS_BLOCKERS[@]} _wc=${#ANALYSIS_WARNINGS[@]} _nc=${#ANALYSIS_NOTES[@]} _qc=${#ANALYSIS_QUALITY[@]}
+      local _counts="${_bc}B/${_wc}W/${_nc}N/${_qc}Q"
+      if   (( _bc > 0 )); then add_report_row "$app_label" "BLOCKED" "$_counts" "$_ao_html_link"
+      elif (( _wc > 0 )); then add_report_row "$app_label" "CAUTION" "$_counts" "$_ao_html_link"
+      elif (( _nc > 0 )); then add_report_row "$app_label" "REVIEW"  "$_counts" "$_ao_html_link"
+      else                     add_report_row "$app_label" "READY"   "$_counts" "$_ao_html_link"
       fi
       CURRENT_APP=""
       continue
