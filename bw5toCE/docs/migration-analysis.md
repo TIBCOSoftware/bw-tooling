@@ -114,6 +114,20 @@ By default, blockers stop the deployment. Pass `--allow-blockers` to override an
 
 ---
 
+#### Engine Command — Operational Lifecycle Review
+**Trigger:** `com.tibco.pe.core.EngineCommandActivity` with `<command>` set to any of: `Shutdown`, `SuspendProcessInstance`, `SuspendProcessStarter`, `ResumeProcessInstance`, `ResumeProcessStarter`.
+
+**Why it warns:** In BW5 Classic, these lifecycle commands are typically triggered by external operational tooling such as Hawk Microagents or RedTail. In TIBCO BusinessWorks 5 (Containers), runtime lifecycle management is handled natively by Kubernetes and the TIBCO Platform — through pod lifecycle management, health probes, and the Control Plane. The external tooling that drives these commands may not be available, or may operate differently, in the Platform environment.
+
+Non-lifecycle commands such as `GetActivityStats` are not flagged.
+
+**Remediation:**
+- Identify any operational workflows or external tools (Hawk, RedTail, custom scripts) that invoke these commands
+- Map those workflows to equivalent Kubernetes or TIBCO Platform capabilities (e.g., pod termination, readiness probes, Control Plane APIs)
+- Remove or replace the Engine Command Activities with the appropriate cloud-native lifecycle management approach
+
+---
+
 #### External Command Activity — Review Base Image
 **Trigger:** Any `com.tibco.plugin.generalactivities.ExternalCommandActivity` type found.
 

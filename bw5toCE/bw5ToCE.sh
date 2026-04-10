@@ -757,6 +757,19 @@ _analysis_scan_process() {
       "Module Shared Variable referenced. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: consider migrating to a DB-persisted Shared Variable, following similar principles as Checkpoint storage."
   fi
 
+  # --- WARNING: Engine Command Activity (operational lifecycle commands) ---
+  # Only flag commands that interact with the BW5 Classic runtime lifecycle;
+  # operational-stats commands (GetActivityStats, etc.) are safe to ignore.
+  if echo "$types" | grep -q 'com\.tibco\.pe\.core\.EngineCommandActivity'; then
+    local flagged_cmds
+    flagged_cmds=$(grep -oE '<command>(Shutdown|SuspendProcessInstance|SuspendProcessStarter|ResumeProcessInstance|ResumeProcessStarter)</command>' "$pfile" 2>/dev/null \
+      | sed 's/<command>//g; s/<\/command>//g' | sort -u | tr '\n' ',' | sed 's/,$//' || true)
+    if [[ -n "$flagged_cmds" ]]; then
+      _analysis_add_warning "$fname" "Engine Command — Operational Lifecycle Review" \
+        "Engine Command Activity with lifecycle operations ($flagged_cmds) detected. In BW5 Classic, these commands are typically triggered by external operational tooling such as Hawk Microagents or RedTail. In TIBCO BusinessWorks 5 (Containers), runtime lifecycle management is handled natively by Kubernetes and the TIBCO Platform — through pod lifecycle management, health probes, and the Control Plane. Review any operational workflows or tooling that rely on these commands and align them with the cloud-native management capabilities of TIBCO BusinessWorks 5 (Containers)."
+    fi
+  fi
+
   # --- WARNING: External Command Activity ---
   if echo "$types" | grep -q 'com\.tibco\.plugin\.generalactivities\.ExternalCommandActivity'; then
     _analysis_add_warning "$fname" "External Command Activity — Review Base Image" \

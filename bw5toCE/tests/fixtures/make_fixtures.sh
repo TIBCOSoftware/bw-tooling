@@ -440,6 +440,56 @@ rm -f "$PROC_DIR"/*.process
 rm -rf "$AAR_DIR"
 
 # ------------------------------------------------------------------ #
+# Fixture: engine_command_lifecycle.ear — EngineCommand with flagged
+# lifecycle operations (WARNING): Shutdown + SuspendProcessStarter
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>ShutdownEngine</pd:name>
+    <pd:type>com.tibco.pe.core.EngineCommandActivity</pd:type>
+    <pd:resourceType>ae.activities.enginecommand</pd:resourceType>
+    <config>
+      <command>Shutdown</command>
+    </config>
+  </pd:activity>
+  <pd:activity>
+    <pd:name>SuspendStarter</pd:name>
+    <pd:type>com.tibco.pe.core.EngineCommandActivity</pd:type>
+    <pd:resourceType>ae.activities.enginecommand</pd:resourceType>
+    <config>
+      <command>SuspendProcessStarter</command>
+    </config>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+make_ear "engine_command_lifecycle" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process
+
+# ------------------------------------------------------------------ #
+# Fixture: engine_command_safe.ear — EngineCommand with a non-flagged
+# command (GetActivityStats) — should produce no warning
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>GetStats</pd:name>
+    <pd:type>com.tibco.pe.core.EngineCommandActivity</pd:type>
+    <pd:resourceType>ae.activities.enginecommand</pd:resourceType>
+    <config>
+      <command>GetActivityStats</command>
+    </config>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+make_ear "engine_command_safe" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process
+
+# ------------------------------------------------------------------ #
 # Fixture: external_command.ear — External Command Activity (WARNING)
 # ------------------------------------------------------------------ #
 cat > "$PROC_DIR/main.process" <<'EOF'

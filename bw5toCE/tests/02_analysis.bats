@@ -206,6 +206,32 @@ setup() {
 
 # ─── WARNINGS (continued) ────────────────────────────────────────────────────
 
+@test "engine_command_lifecycle.ear: lifecycle EngineCommand is WARNING" {
+  ear="$(require_fixture "engine_command_lifecycle")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
+  assert_contains "${ANALYSIS_WARNINGS[0]}" "Engine Command"
+}
+
+@test "engine_command_lifecycle.ear: warning includes the detected command names" {
+  ear="$(require_fixture "engine_command_lifecycle")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  assert_contains "${ANALYSIS_WARNINGS[0]}" "Shutdown"
+}
+
+@test "engine_command_lifecycle.ear: no blockers for lifecycle EngineCommand" {
+  ear="$(require_fixture "engine_command_lifecycle")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+}
+
+@test "engine_command_safe.ear: GetActivityStats EngineCommand produces no warning" {
+  ear="$(require_fixture "engine_command_safe")"
+  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+}
+
 @test "external_command.ear: External Command Activity is WARNING" {
   ear="$(require_fixture "external_command")"
   analyze_ear_for_migration "$ear" "$TEST_TMP"
