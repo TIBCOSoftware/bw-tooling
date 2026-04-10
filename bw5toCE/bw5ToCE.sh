@@ -350,7 +350,7 @@ Behavior:
   - Writes YAML of Global Variables to output and updates values.yaml
   - If --platform is provided, can upload & deploy via Platform APIs using env/${PLATFORM_ENV}.env
   - Quiet by default; use --debug for verbose logs
-  - Migration readiness analysis runs automatically when an EAR is available
+  - Platform portability analysis runs automatically when an EAR is available
 
 Batch mode:
   - Uses AppManage -batchExport to export ALL apps' EARs from the domain.
@@ -362,7 +362,7 @@ Offline and control flags:
   --no-deploy          Upload EAR to platform (requires --platform), but do not deploy
   --no-start           Deploy with replicaCount=0 (app not started)
 
-Migration analysis flags:
+Portability analysis flags:
   --analyze-only       Run analysis only; do not upload or deploy (no --platform needed)
   --report [<path>]    Generate HTML readiness report (default: output/<app>-analysis-<ts>.html)
   --report-cli [<path>] Generate plain-text readiness report (default: output/<app>-analysis-<ts>.txt)
@@ -518,7 +518,7 @@ print_batch_report() {
 }
 
 # ==========================================
-# Migration Readiness Analysis
+# Platform Portability Analysis
 # ==========================================
 
 # Findings: each entry is tab-separated "FILE\tITEM\tDESCRIPTION"
@@ -677,7 +677,7 @@ _analysis_check_tibco_xml() {
   fi
 }
 
-# Scan a single .process file for migration issues.
+# Scan a single .process file for portability considerations.
 # $1 = process file path
 # $2 = "true" if checkpoint appears DB-backed (from TIBCO.xml analysis)
 _analysis_scan_process() {
@@ -743,7 +743,7 @@ _analysis_scan_process() {
         "Checkpoint with database storage detected. This is fully supported in TIBCO BusinessWorks 5 (Containers). We recommend validating behavior under autoscaling and multi-replica deployments to ensure checkpoint consistency."
     else
       _analysis_add_warning "$fname" "Checkpoint — File Storage" \
-        "Checkpoint detected without database storage. File-based checkpoint storage requires additional persistent storage such as a PersistentVolumeClaim (PVC) and volume mount. We recommend migrating to a JDBC-based Checkpoint Data Repository for the best experience in a containerized environment."
+        "Checkpoint detected without database storage. File-based checkpoint storage requires additional persistent storage such as a PersistentVolumeClaim (PVC) and volume mount. We recommend switching to a JDBC-based Checkpoint Data Repository for the best experience in a containerized environment."
     fi
   fi
 
@@ -754,7 +754,7 @@ _analysis_scan_process() {
     | sed 's/<variableConfig>//g; s/<\/variableConfig>//g' || true)
   if echo "$var_refs" | grep -q '\.moduleSharedVariable\|\.sharedvariable'; then
     _analysis_add_warning "$fname" "Module Shared Variable — Review Scope" \
-      "Module Shared Variable referenced. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: consider migrating to a DB-persisted Shared Variable, following similar principles as Checkpoint storage."
+      "Module Shared Variable referenced. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: consider switching to a DB-persisted Shared Variable, following similar principles as Checkpoint storage."
   fi
 
   # --- WARNING: Engine Command Activity (operational lifecycle commands) ---
@@ -815,7 +815,7 @@ _analysis_scan_shared_resources() {
         | sed 's/<persistence>//g; s/<\/persistence>//g' | head -1 || true)
       if [[ "$persistence" != "database" && "$persistence" != "jdbc" ]]; then
         _analysis_add_warning "$fname" "Module Shared Variable — Non-DB Persistence" \
-          "Module Shared Variable with non-database persistence ('${persistence:-none/default}') detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, migrating to JDBC-based persistence is recommended to ensure consistency across replicas."
+          "Module Shared Variable with non-database persistence ('${persistence:-none/default}') detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, switching to JDBC-based persistence is recommended to ensure consistency across replicas."
       fi
     fi
   done < <(find "$res_dir" \( \
@@ -879,7 +879,7 @@ _analysis_scan_service_agent() {
 
 # Main analysis driver: extracts EAR, scans all processes and shared resources.
 # Populates ANALYSIS_BLOCKERS, ANALYSIS_WARNINGS, ANALYSIS_NOTES.
-analyze_ear_for_migration() {
+analyze_ear_for_portability() {
   local ear_file="$1"
   local work_dir="$2"
 
@@ -943,17 +943,17 @@ print_analysis_summary() {
   hr="$(repeat_char '─' 72)"
 
   printf '\n%s\n' "$hr"
-  printf ' MIGRATION READINESS: %s\n' "$app_name"
+  printf ' PLATFORM PORTABILITY: %s\n' "$app_name"
   printf '%s\n' "$hr"
 
   if (( b_count == 0 && w_count == 0 && n_count == 0 )); then
-    printf ' STATUS: READY — No migration issues detected\n'
+    printf ' STATUS: READY — No portability considerations detected\n'
     printf '%s\n\n' "$hr"
     return 0
   fi
 
   if (( b_count > 0 )); then
-    printf ' STATUS: BLOCKED — %d blocker(s) must be resolved before migrating\n' "$b_count"
+    printf ' STATUS: BLOCKED — %d blocker(s) must be resolved before transitioning\n' "$b_count"
   elif (( w_count > 0 )); then
     printf ' STATUS: CAUTION — %d behavior change(s) to review\n' "$w_count"
   else
@@ -1030,7 +1030,7 @@ generate_html_report() {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>BW5 Migration Readiness: $(printf '%s' "$app_name" | sed 's/</\&lt;/g;s/>/\&gt;/g')</title>
+<title>BW5 Platform Portability: $(printf '%s' "$app_name" | sed 's/</\&lt;/g;s/>/\&gt;/g')</title>
 <style>
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;margin:0;background:#f5f7fa;color:#222}
 .hdr{background:#1a2b4a;color:#fff;padding:24px 32px}
@@ -1065,7 +1065,7 @@ tr:last-child td{border-bottom:none}
 </head>
 <body>
 <div class="hdr">
-  <h1>BW5 Migration Readiness Report</h1>
+  <h1>BW5 Platform Portability Report</h1>
   <p>Application: <strong>$(printf '%s' "$app_name" | sed 's/</\&lt;/g;s/>/\&gt;/g')</strong> &nbsp;|&nbsp; Generated: ${ts}</p>
 </div>
 <div class="body">
@@ -1093,17 +1093,17 @@ HTMLEOF
     printf '</table></section>\n' >> "$report_file"
   }
 
-  _append_section ANALYSIS_BLOCKERS "bi" "bh" "&#10006; Blockers — must resolve before migration (${b_count})"
+  _append_section ANALYSIS_BLOCKERS "bi" "bh" "&#10006; Blockers — must resolve before transitioning (${b_count})"
   _append_section ANALYSIS_WARNINGS "wi" "wh" "&#9888; Warnings — behavior differs in containers (${w_count})"
   _append_section ANALYSIS_NOTES    "ni" "nh" "&#8505; Notes — cloud-native considerations (${n_count})"
 
   if (( b_count == 0 && w_count == 0 && n_count == 0 )); then
-    printf '<section><h2 class="oh">&#10003; Ready — no migration issues detected</h2>' >> "$report_file"
+    printf '<section><h2 class="oh">&#10003; Ready — no portability considerations detected</h2>' >> "$report_file"
     printf '<p style="padding:16px 20px;margin:0">This application appears ready for containerized deployment.</p></section>\n' >> "$report_file"
   fi
 
   cat >> "$report_file" <<HTMLEOF
-  <div class="foot">Generated by bw5ToCE.sh v${VERSION} &nbsp;|&nbsp; TIBCO BusinessWorks 5 Migration Toolkit</div>
+  <div class="foot">Generated by bw5ToCE.sh v${VERSION} &nbsp;|&nbsp; TIBCO BusinessWorks 5 Platform Portability Toolkit</div>
 </div>
 </body>
 </html>
@@ -1596,11 +1596,11 @@ batch_process_app() {
     return 0
   fi
 
-  # Migration Readiness Analysis (per app in batch)
+  # Platform Portability Analysis (per app in batch)
   if [[ -f "$final_ear" ]]; then
     local batch_analysis_tmp
     batch_analysis_tmp="$(mktemp -d "${tmp_dir}/.analysis_${safe_app}.XXXX")"
-    analyze_ear_for_migration "$final_ear" "$batch_analysis_tmp"
+    analyze_ear_for_portability "$final_ear" "$batch_analysis_tmp"
     local b_c=${#ANALYSIS_BLOCKERS[@]} w_c=${#ANALYSIS_WARNINGS[@]} n_c=${#ANALYSIS_NOTES[@]}
     if (( b_c > 0 || w_c > 0 || n_c > 0 )); then
       local analysis_note="Analysis: ${b_c}B/${w_c}W/${n_c}N"
@@ -1744,7 +1744,7 @@ deploy_offline_from_output() {
       CURRENT_APP="$app_label"
       local _atmp="$app_dir/.analysis_tmp_$$"
       mkdir -p "$_atmp"
-      analyze_ear_for_migration "$latest_ear" "$_atmp"
+      analyze_ear_for_portability "$latest_ear" "$_atmp"
       rm -rf "$_atmp"
       if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
         print_analysis_summary "$app_label"
@@ -2184,13 +2184,13 @@ log "App output dir ....: $OUTPUT_APP_DIR"
   fi
 
 # =======================================
-# 2b) Migration Readiness Analysis
+# 2b) Platform Portability Analysis
 # =======================================
 if [[ "$GENERATE_REPORT" == "true" && -z "$REPORT_FILE" ]]; then
   REPORT_FILE="${OUTPUT_APP_DIR}/${SAFE_APP}-analysis-${TS}.html"
 fi
 # CLI_REPORT_FILE intentionally left empty if no path given → stdout
-analyze_ear_for_migration "$FINAL_EAR" "$TMP_DIR"
+analyze_ear_for_portability "$FINAL_EAR" "$TMP_DIR"
 # Always print to console, unless --report-cli with no path (it will print via generate_cli_report)
 if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
   print_analysis_summary "$APP_NAME"

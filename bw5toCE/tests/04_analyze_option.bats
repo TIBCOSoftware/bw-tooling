@@ -177,7 +177,7 @@ run_full_flow() {
 
 # ─── Real application EAR ─────────────────────────────────────────────────────
 
-@test "--analyze-only: ProjADB732rpc.ear is READY for migration" {
+@test "--analyze-only: ProjADB732rpc.ear is READY for the platform" {
   local ear="$REPO_DIR/output/ProjADB732rpc/ProjADB732rpc.ear"
   if [[ ! -f "$ear" ]]; then
     skip "ProjADB732rpc.ear not found in output/ — run an export first"

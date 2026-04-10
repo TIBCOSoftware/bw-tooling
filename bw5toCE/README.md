@@ -1,12 +1,13 @@
 # BW5 Classic to CE
 
-Utilities to migrate TIBCO BusinessWorks 5 (BW5) applications from TIBCO Administrator to CE (Control Plane). The main script automates EAR export, variable extraction, values injection, and deployment via the Platform API.
+Utilities to move TIBCO BusinessWorks 5 (BW5) applications from TIBCO Administrator to CE (Control Plane). The main script automates EAR export, platform portability analysis, variable extraction, values injection, and deployment via the Platform API.
 
-Main entry: `bw5-classic-to-ce.sh`
+Main entry: `bw5ToCE.sh`
 
 ## Features
 
-- Export single app EAR and deployment properties
+- Export single app EAR and deployment properties via AppManage
+- **Platform portability analysis** — scan EAR for issues before transitioning (blockers, warnings, notes)
 - Generate YAML from BW5 Global Variables and update Helm `values.yaml`
 - Deploy via Platform API (upload + deploy)
 - Batch export all apps in a domain using AppManage `-batchExport`
@@ -22,6 +23,7 @@ Install and have in `PATH`:
 - yq (mikefarah v4 or python yq are supported)
 - jq
 - curl
+- unzip (required for portability analysis)
 - envsubst (from gettext) — for rendering command templates
 
 Example (macOS/Homebrew):
@@ -122,6 +124,22 @@ Single app export and deploy to platform
   --namespace bwce-dev
 ```
 
+Analyze an app for platform portability (no deploy)
+```sh
+./bw5ToCE.sh tibco516 DynamicHeaders --analyze-only
+```
+
+Analyze with HTML report
+```sh
+./bw5ToCE.sh tibco516 DynamicHeaders \
+  --analyze-only --report output/report.html
+```
+
+Analyze a pre-existing EAR (no domain required)
+```sh
+./bw5ToCE.sh --app MyApp --ear /path/to/MyApp.ear --analyze-only
+```
+
 Export only (no deployment), artifacts go to output/
 ```sh
 ./bw5-classic-to-ce.sh tibco516 DynamicHeaders --offline
@@ -142,6 +160,20 @@ Deploy from custom artifacts
   --platform platform --namespace bwce-dev
 ```
 
+## Portability Analysis
+
+The script includes a built-in platform portability engine that scans EAR files for issues before transitioning. Findings are grouped by severity:
+
+| Level | Meaning |
+|---|---|
+| **BLOCKER** | Must be resolved before platform onboarding can proceed |
+| **WARNING** | Behavior will differ in containers; review required |
+| **NOTE** | Items to plan for cloud-native adaptation |
+
+By default, blockers halt the deployment. Use `--allow-blockers` to override.
+
+See [docs/portability-analysis.md](docs/portability-analysis.md) for the full list of checks and remediation guidance.
+
 ## Output Structure
 
 ```
@@ -151,14 +183,23 @@ output/
     <app>-deployment-props-<timestamp>.xml   # not produced when --offline
     <app>-global-variables-<timestamp>.yaml  # not produced when --offline
     <app>-values.yaml                         # includes fullnameOverride
+    <app>-report-<timestamp>.html             # if --report used
+    <app>-report-<timestamp>.txt              # if --report-cli <file> used
 ```
 
 The repo `values.yaml` is used as a base and updated in place with Global Variables on each run; a per‑app copy is stored alongside the exported EAR.
 
 ## Notes
-- AppManage path resolution: if `TRA_HOME` is set, the script uses `"$TRA_HOME/bin/AppManage"`. Otherwise it defaults to `/opt/tibco/tra/5.13/bin/AppManage`. You can override with `APPMANAGE_BIN_FOLDER` or `APPMANAGE_BIN` (env or `config.props`).
-- The script supports both mikefarah/yq v4 and python yq; it auto‑detects which is installed.
-- In batch mode, the script parses AppManage output to derive per‑app names and sets `fullnameOverride` accordingly. A batch report is written to `output/batch-report-<domain>-<timestamp>.txt`.
+
+- **AppManage path resolution**: if `TRA_HOME` is set, the script uses `"$TRA_HOME/bin/AppManage"`. Otherwise defaults to `/opt/tibco/tra/5.13/bin/AppManage`. Override with `APPMANAGE_BIN_FOLDER` or `APPMANAGE_BIN` (env or `config.props`).
+- **yq compatibility**: supports both mikefarah/yq v4 and python yq; auto-detected at runtime.
+- **Batch mode**: parses AppManage output to derive per-app names and sets `fullnameOverride` accordingly. A batch report is written to `output/batch-report-<domain>-<timestamp>.txt`.
+
+## Documentation
+
+- [Portability Analysis Guide](docs/portability-analysis.md) — detailed analysis checks and remediation
+- [Configuration Reference](docs/configuration.md) — all flags, env vars, and config.props options
+- [Contributing](docs/contributing.md) — how to develop and contribute to the project
 
 ## License
 

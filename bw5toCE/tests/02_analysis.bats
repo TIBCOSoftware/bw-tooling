@@ -1,5 +1,5 @@
 #!/usr/bin/env bats
-# Integration tests for the migration readiness analysis engine.
+# Integration tests for the platform portability analysis engine.
 # Requires fixture EARs — run tests/fixtures/make_fixtures.sh first.
 
 load 'test_helper'
@@ -17,7 +17,7 @@ setup() {
 
 @test "clean.ear: no blockers, warnings, or notes" {
   ear="$(require_fixture "clean")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
   [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]
@@ -28,14 +28,14 @@ setup() {
 # HTTPReceiver (HTTPEventSource) with useHTTPAuthentication=true
 @test "http_basic_auth.ear: HTTPReceiver with useHTTPAuthentication=true is BLOCKER" {
   ear="$(require_fixture "http_basic_auth")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_BLOCKERS[0]}" "HTTP Basic Auth"
 }
 
 @test "http_basic_auth.ear: no false warnings or notes from basic auth" {
   ear="$(require_fixture "http_basic_auth")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
   [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]
 }
@@ -43,14 +43,14 @@ setup() {
 # SOAPEventSource with useBasicAuthentication=true
 @test "soap_event_source_basic_auth.ear: SOAPEventSource with useBasicAuthentication=true is BLOCKER" {
   ear="$(require_fixture "soap_event_source_basic_auth")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_BLOCKERS[0]}" "HTTP Basic Auth"
 }
 
 @test "soap_event_source_basic_auth.ear: no false warnings or notes" {
   ear="$(require_fixture "soap_event_source_basic_auth")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
   [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]
 }
@@ -58,48 +58,48 @@ setup() {
 # ServiceAgent with useBasicAuthentication=true
 @test "service_agent_basic_auth.ear: ServiceAgent with useBasicAuthentication=true is BLOCKER" {
   ear="$(require_fixture "service_agent_basic_auth")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_BLOCKERS[0]}" "HTTP Basic Auth"
 }
 
 @test "service_agent_basic_auth.ear: no false warnings or notes" {
   ear="$(require_fixture "service_agent_basic_auth")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
   [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]
 }
 
 @test "unsupported_activity.ear: detects unknown type as BLOCKER" {
   ear="$(require_fixture "unsupported_activity")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_BLOCKERS[0]}" "Not Yet Available"
 }
 
 @test "unsupported_activity.ear: blocker description mentions activity type" {
   ear="$(require_fixture "unsupported_activity")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   assert_contains "${ANALYSIS_BLOCKERS[0]}" "com.tibco.plugin.unknownvendor"
 }
 
 # Adapter (AAR) — supported: ADB (componentSoftwareName=adb)
 @test "adapter_supported.ear: ADB adapter produces no blockers" {
   ear="$(require_fixture "adapter_supported")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
 }
 
 # Adapter (AAR) — unsupported: JD Edwards, PeopleSoft, OSIsoft PI, Tuxedo
 @test "unsupported_adapters.ear: detects all 4 unsupported adapters as BLOCKERs" {
   ear="$(require_fixture "unsupported_adapters")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 4 ]
 }
 
 @test "unsupported_adapters.ear: blocker labels use friendly adapter names" {
   ear="$(require_fixture "unsupported_adapters")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   local all_blockers="${ANALYSIS_BLOCKERS[*]}"
   assert_contains "$all_blockers" "JD Edwards Adapter"
   assert_contains "$all_blockers" "PeopleSoft Adapter"
@@ -111,13 +111,13 @@ setup() {
 # Type strings taken verbatim from PluginActivityMap (Go extractor package)
 @test "unsupported_plugins.ear: detects all 5 unsupported plugins as BLOCKERs" {
   ear="$(require_fixture "unsupported_plugins")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 5 ]
 }
 
 @test "unsupported_plugins.ear: blocker labels use friendly plugin names" {
   ear="$(require_fixture "unsupported_plugins")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   local all_blockers="${ANALYSIS_BLOCKERS[*]}"
   assert_contains "$all_blockers" "EJB Plugin"
   assert_contains "$all_blockers" "Mobile Integration Plugin"
@@ -130,13 +130,13 @@ setup() {
 # (EDI has no PluginActivityMap entry — not detectable via <pd:type> scanning)
 @test "unsupported_mainframe.ear: detects CICS and HL7 as BLOCKERs" {
   ear="$(require_fixture "unsupported_mainframe")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 2 ]
 }
 
 @test "unsupported_mainframe.ear: blocker labels use friendly mainframe names" {
   ear="$(require_fixture "unsupported_mainframe")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   local all_blockers="${ANALYSIS_BLOCKERS[*]}"
   assert_contains "$all_blockers" "CICS Mainframe Plugin"
   assert_contains "$all_blockers" "HL7 Plugin"
@@ -146,20 +146,20 @@ setup() {
 
 @test "checkpoint_file.ear: checkpoint without DB is WARNING" {
   ear="$(require_fixture "checkpoint_file")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_WARNINGS[0]}" "Checkpoint"
 }
 
 @test "checkpoint_file.ear: no blockers for checkpoint" {
   ear="$(require_fixture "checkpoint_file")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
 }
 
 @test "checkpoint_db.ear: checkpoint with DB storage is WARNING (not blocker)" {
   ear="$(require_fixture "checkpoint_db")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
   [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_WARNINGS[0]}" "Checkpoint"
@@ -168,7 +168,7 @@ setup() {
 
 @test "wait_notify.ear: Wait/Notify pattern is WARNING" {
   ear="$(require_fixture "wait_notify")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_WARNINGS[0]}" "Wait"
 }
@@ -177,21 +177,21 @@ setup() {
 
 @test "file_io.ear: file activities are NOTE" {
   ear="$(require_fixture "file_io")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_NOTES[0]}" "File I/O"
 }
 
 @test "file_io.ear: no blockers or warnings for plain file I/O" {
   ear="$(require_fixture "file_io")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
 }
 
 @test "ft_group.ear: FT Group reference is NOTE (not BLOCKER)" {
   ear="$(require_fixture "ft_group")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
   [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_NOTES[0]}" "Fault Tolerant"
@@ -199,7 +199,7 @@ setup() {
 
 @test "rendezvous.ear: RV activities are NOTE" {
   ear="$(require_fixture "rendezvous")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_NOTES[0]}" "Rendezvous"
 }
@@ -208,61 +208,61 @@ setup() {
 
 @test "engine_command_lifecycle.ear: lifecycle EngineCommand is WARNING" {
   ear="$(require_fixture "engine_command_lifecycle")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_WARNINGS[0]}" "Engine Command"
 }
 
 @test "engine_command_lifecycle.ear: warning includes the detected command names" {
   ear="$(require_fixture "engine_command_lifecycle")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   assert_contains "${ANALYSIS_WARNINGS[0]}" "Shutdown"
 }
 
 @test "engine_command_lifecycle.ear: no blockers for lifecycle EngineCommand" {
   ear="$(require_fixture "engine_command_lifecycle")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
 }
 
 @test "engine_command_safe.ear: GetActivityStats EngineCommand produces no warning" {
   ear="$(require_fixture "engine_command_safe")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
 }
 
 @test "external_command.ear: External Command Activity is WARNING" {
   ear="$(require_fixture "external_command")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_WARNINGS[0]}" "External Command"
 }
 
 @test "external_command.ear: no blockers for External Command Activity" {
   ear="$(require_fixture "external_command")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
 }
 
 @test "external_command.ear: no notes for External Command Activity" {
   ear="$(require_fixture "external_command")"
-  analyze_ear_for_migration "$ear" "$TEST_TMP"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]
 }
 
 # ─── State reset between calls ────────────────────────────────────────────────
 
-@test "analysis state is reset between analyze_ear_for_migration calls" {
+@test "analysis state is reset between analyze_ear_for_portability calls" {
   ear_blocker="$(require_fixture "http_basic_auth")"
   ear_clean="$(require_fixture "clean")"
 
   # Use separate work dirs to avoid leftover extracted files between calls
-  analyze_ear_for_migration "$ear_blocker" "$TEST_TMP/run1"
+  analyze_ear_for_portability "$ear_blocker" "$TEST_TMP/run1"
   [ "${#ANALYSIS_BLOCKERS[@]}" -ge 1 ]
 
   # Second call with clean EAR must reset state (new work dir, no leftover artifacts)
-  analyze_ear_for_migration "$ear_clean" "$TEST_TMP/run2"
+  analyze_ear_for_portability "$ear_clean" "$TEST_TMP/run2"
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
   [ "${#ANALYSIS_WARNINGS[@]}" -eq 0 ]
   [ "${#ANALYSIS_NOTES[@]}" -eq 0 ]

@@ -1,6 +1,6 @@
-# Migration Analysis Guide
+# Portability Analysis Guide
 
-The migration readiness engine scans BW5 EAR files for patterns that are incompatible with or require attention in TIBCO BusinessWorks 5 (Containers). It is built into `bw5ToCE.sh` and runs automatically before every deployment.
+The platform portability engine scans BW5 EAR files for patterns that are incompatible with or require attention in TIBCO BusinessWorks 5 (Containers). It is built into `bw5ToCE.sh` and runs automatically before every deployment.
 
 ## Running the Analysis
 
@@ -39,7 +39,7 @@ By default, blockers stop the deployment. Pass `--allow-blockers` to override an
 
 | Level | Prefix | Meaning |
 |---|---|---|
-| **BLOCKER** | `[B]` | Functionality requires attention before migrating to TIBCO BusinessWorks 5 (Containers) |
+| **BLOCKER** | `[B]` | Functionality requires attention before transitioning to TIBCO BusinessWorks 5 (Containers) |
 | **WARNING** | `[W]` | Behavior differs from BW5 Classic; review and test carefully in the target environment |
 | **NOTE** | `[N]` | Architectural consideration for cloud-native deployment; review and validate design |
 
@@ -105,7 +105,7 @@ By default, blockers stop the deployment. Pass `--allow-blockers` to override an
 #### Checkpoint — File Storage
 **Trigger:** `CheckpointActivity` found and TIBCO.xml does not reference a database-backed checkpoint repository.
 
-**Why it warns:** File-based checkpoint storage requires additional persistent storage such as a PersistentVolumeClaim (PVC) and volume mount. For the best experience in a containerized environment, migrating to a JDBC-based Checkpoint Data Repository is recommended.
+**Why it warns:** File-based checkpoint storage requires additional persistent storage such as a PersistentVolumeClaim (PVC) and volume mount. For the best experience in a containerized environment, switching to a JDBC-based Checkpoint Data Repository is recommended.
 
 **Remediation:**
 - Configure checkpoint storage to use a JDBC database
@@ -148,14 +148,14 @@ Non-lifecycle commands such as `GetActivityStats` are not flagged.
 
 **Remediation:**
 - If single-instance scope is acceptable, set `replicaCount: 1` — no changes needed
-- For cross-instance scenarios, migrate to a DB-persisted Shared Variable (JDBC)
+- For cross-instance scenarios, switch to a DB-persisted Shared Variable (JDBC)
 
 ---
 
 #### Module Shared Variable — Non-DB Persistence
 **Trigger:** A `.moduleSharedVariable` shared resource file has `persistence` not set to `database` or `jdbc`.
 
-**Why it warns:** Module Shared Variable with non-database persistence detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, migrating to JDBC-based persistence is recommended to ensure consistency across replicas.
+**Why it warns:** Module Shared Variable with non-database persistence detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, switching to JDBC-based persistence is recommended to ensure consistency across replicas.
 
 **Remediation:** Configure JDBC persistence in the shared variable resource definition, or add a PVC and volume mount if file-based storage must be retained.
 
