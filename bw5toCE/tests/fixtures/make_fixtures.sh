@@ -118,7 +118,7 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   </pd:activity>
   <pd:activity>
     <pd:name>Log</pd:name>
-    <pd:type>com.tibco.plugin.log.LogActivity</pd:type>
+    <pd:type>com.tibco.pe.core.WriteToLogActivity</pd:type>
   </pd:activity>
   <pd:activity>
     <pd:name>RESTCall</pd:name>
@@ -241,7 +241,7 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   <pd:name>Main</pd:name>
   <pd:activity>
     <pd:name>Chk</pd:name>
-    <pd:type>com.tibco.bw.core.CheckpointActivity</pd:type>
+    <pd:type>com.tibco.pe.core.CheckpointActivity</pd:type>
   </pd:activity>
 </pd:ProcessDefinition>
 EOF
@@ -257,7 +257,7 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   <pd:name>Main</pd:name>
   <pd:activity>
     <pd:name>Chk</pd:name>
-    <pd:type>com.tibco.bw.core.CheckpointActivity</pd:type>
+    <pd:type>com.tibco.pe.core.CheckpointActivity</pd:type>
   </pd:activity>
 </pd:ProcessDefinition>
 EOF
@@ -283,11 +283,11 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   <pd:name>Main</pd:name>
   <pd:activity>
     <pd:name>Wait</pd:name>
-    <pd:type>com.tibco.bw.core.WaitForNotifActivity</pd:type>
+    <pd:type>com.tibco.plugin.waitnotify.WaitActivity</pd:type>
   </pd:activity>
   <pd:activity>
     <pd:name>Notify</pd:name>
-    <pd:type>com.tibco.bw.core.NotifyActivity</pd:type>
+    <pd:type>com.tibco.plugin.waitnotify.NotifyActivity</pd:type>
   </pd:activity>
 </pd:ProcessDefinition>
 EOF
@@ -337,7 +337,7 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   <pd:name>Main</pd:name>
   <pd:activity>
     <pd:name>RVPub</pd:name>
-    <pd:type>com.tibco.plugin.rendezvous.RVPublishActivity</pd:type>
+    <pd:type>com.tibco.plugin.tibrv.RVPubActivity</pd:type>
   </pd:activity>
 </pd:ProcessDefinition>
 EOF
@@ -501,7 +501,7 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   <pd:name>Main</pd:name>
   <pd:activity>
     <pd:name>RunScript</pd:name>
-    <pd:type>com.tibco.plugin.generalactivities.ExternalCommandActivity</pd:type>
+    <pd:type>com.tibco.plugin.cmdexec.CmdExecActivity</pd:type>
   </pd:activity>
 </pd:ProcessDefinition>
 EOF

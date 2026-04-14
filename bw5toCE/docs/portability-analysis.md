@@ -132,7 +132,7 @@ Non-lifecycle commands such as `GetActivityStats` are not flagged.
 ---
 
 #### External Command Activity — Review Base Image
-**Trigger:** Any `com.tibco.plugin.generalactivities.ExternalCommandActivity` type found.
+**Trigger:** Any `com.tibco.plugin.cmdexec.CmdExecActivity` type found.
 
 **Why it warns:** External Command Activities execute OS-level commands and rely on binaries being available inside the container image. The TIBCO BusinessWorks 5 (Containers) base image may not include all required commands or utilities, which could cause runtime failures if the expected binary is not present.
 
@@ -180,7 +180,7 @@ Non-lifecycle commands such as `GetActivityStats` are not flagged.
 ---
 
 #### TIBCO Rendezvous — Review Deployment Design
-**Trigger:** Any `com.tibco.plugin.rendezvous.*` activity type.
+**Trigger:** Any `com.tibco.plugin.tibrv.*` activity type.
 
 **Why it's noted:** TIBCO Rendezvous activities detected. RV in a cloud environment may require TIBCO TRNS software or additional configuration. Re-evaluating the design to determine if a TIBCO Messaging alternative can be used is recommended.
 
@@ -208,27 +208,26 @@ Non-lifecycle commands such as `GetActivityStats` are not flagged.
 The following plugin namespaces are considered supported. Activities outside these prefixes are flagged as requiring attention.
 
 **Core (always in the base image):**
-- `com.tibco.bw.*` — BW engine core
-- `com.tibco.pe.*` — Process engine
+- `com.tibco.ae.tools.palettes.servicepalette.*` — Service Agent activities (GetContext, SetContext, InvokePartner)
+- `com.tibco.pe.*` — Process engine (core activities, StartActivity, StopActivity)
+- `com.tibco.plugin.ae.*` — Adapter Engine (AE) framework activities
+- `com.tibco.plugin.cmdexec.*` — External command execution
 - `com.tibco.plugin.file.*` — File
 - `com.tibco.plugin.ftp.*` — FTP
-- `com.tibco.plugin.soap.*` — SOAP
 - `com.tibco.plugin.http.*` — HTTP
+- `com.tibco.plugin.java.*` — Java
 - `com.tibco.plugin.jdbc.*` — JDBC
 - `com.tibco.plugin.jms.*` — JMS
-- `com.tibco.plugin.ems.*` — EMS
 - `com.tibco.plugin.mail.*` — Mail
-- `com.tibco.plugin.rendezvous.*` — Rendezvous
-- `com.tibco.plugin.timer.*` — Timer
-- `com.tibco.plugin.java.*` — Java
-- `com.tibco.plugin.xml.*` — XML
-- `com.tibco.plugin.xslt.*` — XSLT
 - `com.tibco.plugin.mapper.*` — Mapper
-- `com.tibco.plugin.generalactivities.*` — General Activities
-- `com.tibco.plugin.shared.*` — Shared resources
-- `com.tibco.plugin.noop.*` — No-op
-- `com.tibco.plugin.log.*` — Log
-- `com.tibco.plugin.parse.*` — Parse (core BW5)
+- `com.tibco.plugin.parse.*` — Parse / Render
+- `com.tibco.plugin.soap.*` — SOAP
+- `com.tibco.plugin.tcp.*` — TCP
+- `com.tibco.plugin.tibrv.*` — TIBCO Rendezvous
+- `com.tibco.plugin.timer.*` — Timer / Sleep
+- `com.tibco.plugin.transaction.share.*` — Transaction shared state
+- `com.tibco.plugin.waitnotify.*` — Wait & Notify
+- `com.tibco.plugin.xml.*` — XML
 
 **Supported adapters/plugins (require separate plugin images):**
 - `com.tibco.plugin.adb.*` — ADB

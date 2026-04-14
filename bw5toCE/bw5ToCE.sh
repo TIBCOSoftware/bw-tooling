@@ -635,29 +635,29 @@ ANALYSIS_WARNINGS=()
 ANALYSIS_NOTES=()
 ANALYSIS_QUALITY=()
 
-# Supported core BW5 activity type prefixes (always in the base image)
+# Supported core BW5 activity type prefixes (always in the base image).
+# Derived from bw5-base-debian/activity-classnames.txt — full class names grouped by package prefix.
 BWCE_CORE_PREFIXES=(
-  "com.tibco.bw."
-  "com.tibco.pe."
+  "com.tibco.ae.tools.palettes.servicepalette."  # Service Agent activities (GetContext, SetContext, InvokePartner)
+  "com.tibco.pe."                                 # Core engine activities (pe.core.*, pe.model.*)
+  "com.tibco.plugin.ae."                          # Adapter Engine (AE) framework activities
+  "com.tibco.plugin.cmdexec."                     # External command execution (CmdExecActivity)
   "com.tibco.plugin.file."
   "com.tibco.plugin.ftp."
-  "com.tibco.plugin.soap."
   "com.tibco.plugin.http."
+  "com.tibco.plugin.java."
   "com.tibco.plugin.jdbc."
   "com.tibco.plugin.jms."
-  "com.tibco.plugin.ems."
   "com.tibco.plugin.mail."
-  "com.tibco.plugin.rendezvous."
-  "com.tibco.plugin.timer."
-  "com.tibco.plugin.java."
-  "com.tibco.plugin.xml."
-  "com.tibco.plugin.xslt."
   "com.tibco.plugin.mapper."
-  "com.tibco.plugin.generalactivities."
-  "com.tibco.plugin.shared."
-  "com.tibco.plugin.noop."
-  "com.tibco.plugin.log."
   "com.tibco.plugin.parse."
+  "com.tibco.plugin.soap."
+  "com.tibco.plugin.tcp."                         # TCP activities
+  "com.tibco.plugin.tibrv."                       # TIBCO Rendezvous (actual class prefix, not rendezvous)
+  "com.tibco.plugin.timer."
+  "com.tibco.plugin.transaction.share."           # Transaction shared state
+  "com.tibco.plugin.waitnotify."                  # Wait & Notify
+  "com.tibco.plugin.xml."
 )
 
 # Supported additional adapters/plugins per the supported list.
@@ -848,7 +848,7 @@ _analysis_scan_process() {
 
   # --- WARNING: Wait & Notify ---
   local wait_notify
-  wait_notify=$(echo "$types" | grep -iE 'WaitForNotif|WaitNotif|NotifyActivity' || true)
+  wait_notify=$(echo "$types" | grep -E 'com\.tibco\.plugin\.waitnotify\.|WaitForNotif|WaitNotif|NotifyActivity' || true)
   if [[ -n "$wait_notify" ]]; then
     _analysis_add_warning "$fname" "Wait & Notify — Review Scope" \
       "Wait/Notify pattern detected. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: TIBCO BusinessWorks 5 (Containers) follows standard Kubernetes practices where each instance is independent, and there is no out-of-the-box inter-instance communication for this feature."
@@ -889,7 +889,7 @@ _analysis_scan_process() {
   fi
 
   # --- WARNING: External Command Activity ---
-  if echo "$types" | grep -q 'com\.tibco\.plugin\.generalactivities\.ExternalCommandActivity'; then
+  if echo "$types" | grep -q 'com\.tibco\.plugin\.cmdexec\.CmdExecActivity'; then
     _analysis_add_warning "$fname" "External Command Activity — Review Base Image" \
       "External Command Activity detected. These activities execute OS-level commands and rely on binaries being available inside the container image. The TIBCO BusinessWorks 5 (Containers) base image may not include all required commands or utilities. Review each External Command Activity and verify that the required binaries are present in the base image, or plan for a custom base image that includes the additional dependencies."
   fi
@@ -905,7 +905,7 @@ _analysis_scan_process() {
   fi
 
   # --- NOTE: Rendezvous ---
-  if echo "$types" | grep -q 'com\.tibco\.plugin\.rendezvous\.'; then
+  if echo "$types" | grep -q 'com\.tibco\.plugin\.tibrv\.'; then
     _analysis_add_note "$fname" "TIBCO Rendezvous — Review Deployment Design" \
       "TIBCO Rendezvous activities detected. Test carefully, as RV in a cloud environment may require TIBCO TRNS software or additional configuration. Re-evaluate the design to determine if it can be replaced with another TIBCO Messaging alternative such as TIBCO EMS or TIBCO Cloud Messaging, if needed."
   fi
