@@ -674,6 +674,9 @@ BWCE_PLUGIN_PREFIXES=(
   "com.tibco.plugin.bwlx."          # Large XML
   "com.tibco.plugin.json."           # REST/JSON (com.tibco.plugin.json.activities.*)
   "com.tibco.plugin.restjson."       # REST/JSON (legacy namespace)
+  "com.tibco.plugin.facebook"      
+  "com.tibco.plugin.twitter"
+  "com.tibco.plugin.cobol."          # Data conversion
   "com.tibco.bw.palette.rest."
   "com.tibco.plugin.salesforce."
   "com.tibco.plugin.mongodb."
@@ -1124,10 +1127,17 @@ analyze_ear_for_portability() {
 
   require_bin unzip
 
+  [[ -f "$ear_file" ]] || { err "EAR file not found: $ear_file"; return 1; }
+  [[ -s "$ear_file" ]] || { err "EAR file is empty: $ear_file"; return 1; }
+
   local ear_dir="$work_dir/analysis_ear"
   mkdir -p "$ear_dir"
-  unzip -qo "$ear_file" -d "$ear_dir" 2>/dev/null \
-    || { err "Cannot extract EAR for analysis: $ear_file"; return 1; }
+  local _unzip_err
+  if ! _unzip_err=$(unzip -qo "$ear_file" -d "$ear_dir" 2>&1); then
+    err "Cannot extract EAR for analysis: $ear_file"
+    log "unzip: $(normalize_whitespace "$_unzip_err")"
+    return 1
+  fi
 
   # Infer checkpoint storage type from TIBCO.xml
   local has_db_checkpoint
@@ -1806,6 +1816,7 @@ batch_process_app() {
     log "[${app_disp}] EAR -> $final_ear"
   else
     err "[${app_disp}] EAR not found in batch export: $ear_src"
+    err "[${app_disp}] Hint: if this app was renamed in TIBCO Administrator, the EAR and XML file names exported by AppManage may not match the current app name — check the batch export log for the actual exported file paths."
   fi
 
   # Create/update per-app values file based on base VALUES_FILE, setting fullnameOverride
@@ -1843,6 +1854,7 @@ batch_process_app() {
     cp -f "$prop_xml_path" "$final_props"
   else
     err "[${app_disp}] Properties XML not found: $prop_xml_path"
+    err "[${app_disp}] Hint: if this app was renamed in TIBCO Administrator, the EAR and XML file names exported by AppManage may not match the current app name — check the batch export log for the actual exported file paths."
   fi
 
   # Validate BW XML type; omit non-BW apps
@@ -1857,7 +1869,10 @@ batch_process_app() {
   if [[ -f "$final_ear" ]]; then
     local batch_analysis_tmp
     batch_analysis_tmp="$(mktemp -d "${tmp_dir}/.analysis_${safe_app}.XXXX")"
-    analyze_ear_for_portability "$final_ear" "$batch_analysis_tmp"
+    if ! analyze_ear_for_portability "$final_ear" "$batch_analysis_tmp"; then
+      add_report_row "$app_disp" "ERROR" "Cannot extract EAR for analysis" "$_app_report_link"
+      return 0
+    fi
     local b_c=${#ANALYSIS_BLOCKERS[@]} w_c=${#ANALYSIS_WARNINGS[@]} n_c=${#ANALYSIS_NOTES[@]} q_c=${#ANALYSIS_QUALITY[@]}
     local analysis_note="Analysis: ${b_c}B/${w_c}W/${n_c}N/${q_c}Q"
     if [[ "$GENERATE_REPORT" == "true" ]]; then
@@ -1886,7 +1901,12 @@ batch_process_app() {
   fi
 
   # Ensure properties XML exists for further steps
-  [[ -f "$final_props" ]] || { add_report_row "$app_disp" "ERROR" "Properties XML missing" "$_app_report_link"; return 0; }
+  if [[ ! -f "$final_props" ]]; then
+    err "[${app_disp}] Properties XML not found: $final_props"
+    err "[${app_disp}] Hint: if this app was renamed in TIBCO Administrator, the EAR and XML file names exported by AppManage may not match the current app name — check the batch export log for the actual exported file paths."
+    add_report_row "$app_disp" "ERROR" "Properties XML missing — check for app rename in TIBCO Administrator" "$_app_report_link"
+    return 0
+  fi
 
   local props_yaml
   props_yaml="${app_out_dir}/${safe_app}-global-variables-${ts}.yaml"
@@ -2000,7 +2020,12 @@ deploy_offline_from_output() {
       CURRENT_APP="$app_label"
       local _atmp="$app_dir/.analysis_tmp_$$"
       mkdir -p "$_atmp"
-      analyze_ear_for_portability "$latest_ear" "$_atmp"
+      if ! analyze_ear_for_portability "$latest_ear" "$_atmp"; then
+        rm -rf "$_atmp"
+        add_report_row "$app_label" "ERROR" "Cannot extract EAR for analysis"
+        CURRENT_APP=""
+        continue
+      fi
       rm -rf "$_atmp"
       if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
         print_analysis_summary "$app_label"
