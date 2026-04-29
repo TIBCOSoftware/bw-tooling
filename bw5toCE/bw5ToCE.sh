@@ -364,6 +364,7 @@ Offline and control flags:
 
 Portability analysis flags:
   --analyze-only       Run analysis only; do not upload or deploy (no --platform needed)
+  --no-analyze         Skip portability analysis entirely (mutually exclusive with --analyze-only)
   --report [<path>]    Generate HTML readiness report (default: output/<app>-analysis-<ts>.html)
   --report-cli [<path>] Generate plain-text readiness report (default: output/<app>-analysis-<ts>.txt)
   --allow-blockers     Deploy even if BLOCKER issues are found (use with caution)
@@ -1866,7 +1867,7 @@ batch_process_app() {
 
   # Platform Portability Analysis (per app in batch)
   local _app_report_link=""   # relative path from output/ to this app's HTML report
-  if [[ -f "$final_ear" ]]; then
+  if [[ "$NO_ANALYZE" != "true" && -f "$final_ear" ]]; then
     local batch_analysis_tmp
     batch_analysis_tmp="$(mktemp -d "${tmp_dir}/.analysis_${safe_app}.XXXX")"
     if ! analyze_ear_for_portability "$final_ear" "$batch_analysis_tmp"; then
@@ -2119,6 +2120,7 @@ NO_DEPLOY="false"
 NO_START="false"
 FORCE_UPGRADE="false"
 ANALYZE_ONLY="false"
+NO_ANALYZE="false"
 GENERATE_REPORT="false"
 CURL_OPTS=()   # populated with -k only when --insecure-tls is passed
 REPORT_FILE=""
@@ -2148,6 +2150,7 @@ while [[ $# -gt 0 ]]; do
     --ear) CUSTOM_EAR_FILE="${2:-}"; CUSTOM_MODE="true"; shift 2 ;;
     --xml) CUSTOM_XML_FILE="${2:-}"; CUSTOM_MODE="true"; shift 2 ;;
     --analyze-only) ANALYZE_ONLY="true"; shift ;;
+    --no-analyze) NO_ANALYZE="true"; shift ;;
     --allow-blockers) ALLOW_BLOCKERS="true"; shift ;;
     --insecure-tls) CURL_OPTS+=("-k"); shift ;;
     --report)
@@ -2218,6 +2221,11 @@ fi
 # ===========================
 # Validate flag combinations
 # ===========================
+
+# --no-analyze and --analyze-only are mutually exclusive
+if [[ "$NO_ANALYZE" == "true" && "$ANALYZE_ONLY" == "true" ]]; then
+  die "--no-analyze and --analyze-only are mutually exclusive"
+fi
 
 # --offline and --platform are mutually exclusive
 if [[ "$OFFLINE_EXPORT" == "true" && -n "$PLATFORM_ENV" ]]; then
@@ -2470,24 +2478,26 @@ log "App output dir ....: $OUTPUT_APP_DIR"
 # =======================================
 # 2b) Platform Portability Analysis
 # =======================================
-if [[ "$GENERATE_REPORT" == "true" && -z "$REPORT_FILE" ]]; then
-  REPORT_FILE="${OUTPUT_APP_DIR}/${SAFE_APP}-analysis-${TS}.html"
-fi
-# CLI_REPORT_FILE intentionally left empty if no path given → stdout
-analyze_ear_for_portability "$FINAL_EAR" "$TMP_DIR"
-# Always print to console, unless --report-cli with no path (it will print via generate_cli_report)
-if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
-  print_analysis_summary "$APP_NAME"
-fi
-if [[ "$GENERATE_REPORT" == "true" ]]; then
-  generate_html_report "$APP_NAME" "$REPORT_FILE"
-fi
-if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
-  generate_cli_report "$APP_NAME" "$CLI_REPORT_FILE"
-fi
-if [[ "${#ANALYSIS_BLOCKERS[@]}" -gt 0 && "$ALLOW_BLOCKERS" != "true" && "$ANALYZE_ONLY" != "true" ]]; then
-  printf 'Deployment blocked due to %d blocker(s). Use --allow-blockers to override.\n' "${#ANALYSIS_BLOCKERS[@]}" >&2
-  exit 1
+if [[ "$NO_ANALYZE" != "true" ]]; then
+  if [[ "$GENERATE_REPORT" == "true" && -z "$REPORT_FILE" ]]; then
+    REPORT_FILE="${OUTPUT_APP_DIR}/${SAFE_APP}-analysis-${TS}.html"
+  fi
+  # CLI_REPORT_FILE intentionally left empty if no path given → stdout
+  analyze_ear_for_portability "$FINAL_EAR" "$TMP_DIR"
+  # Always print to console, unless --report-cli with no path (it will print via generate_cli_report)
+  if [[ "$GENERATE_CLI_REPORT" != "true" || -n "$CLI_REPORT_FILE" ]]; then
+    print_analysis_summary "$APP_NAME"
+  fi
+  if [[ "$GENERATE_REPORT" == "true" ]]; then
+    generate_html_report "$APP_NAME" "$REPORT_FILE"
+  fi
+  if [[ "$GENERATE_CLI_REPORT" == "true" ]]; then
+    generate_cli_report "$APP_NAME" "$CLI_REPORT_FILE"
+  fi
+  if [[ "${#ANALYSIS_BLOCKERS[@]}" -gt 0 && "$ALLOW_BLOCKERS" != "true" && "$ANALYZE_ONLY" != "true" ]]; then
+    printf 'Deployment blocked due to %d blocker(s). Use --allow-blockers to override.\n' "${#ANALYSIS_BLOCKERS[@]}" >&2
+    exit 1
+  fi
 fi
 if [[ "$ANALYZE_ONLY" == "true" ]]; then
   exit 0
