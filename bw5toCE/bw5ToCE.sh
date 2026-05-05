@@ -341,6 +341,7 @@ Usage:
   $(basename "$0") <DOMAIN> --batch [--offline] [--namespace <ns>] [--platform <PLATFORM_ENV>] [--no-deploy] [--no-start]
   $(basename "$0") [<DOMAIN>] [<APP_NAME>] --deploy-offline --platform <PLATFORM_ENV>
   $(basename "$0") --app <NAME> --ear <PATH> --xml <PATH> [--namespace <ns>] [--platform <PLATFORM_ENV>] [--no-deploy] [--no-start]
+  $(basename "$0") --ear <PATH> [--app <NAME>] --analyze-only [--report [<path>]]
   $(basename "$0") <DOMAIN> <APP_NAME> --analyze-only [--report [<path>]]
   $(basename "$0") --version
 
@@ -2277,9 +2278,15 @@ if [[ "$CUSTOM_MODE" == "true" ]]; then
   if [[ "$DEPLOY_OFFLINE" == "true" ]]; then
     die "--app/--ear/--xml cannot be used with --deploy-offline"
   fi
-  [[ -n "$CUSTOM_APP_NAME" && -n "$CUSTOM_EAR_FILE" && -n "$CUSTOM_XML_FILE" ]] || { err "--app, --ear and --xml must all be provided together"; usage; exit 1; }
-  [[ -f "$CUSTOM_EAR_FILE" ]] || die "EAR file not found: $CUSTOM_EAR_FILE"
-  [[ -f "$CUSTOM_XML_FILE" ]] || die "XML file not found: $CUSTOM_XML_FILE"
+  if [[ "$ANALYZE_ONLY" == "true" ]]; then
+    [[ -n "$CUSTOM_EAR_FILE" ]] || { err "--ear is required for custom analyze-only mode"; usage; exit 1; }
+    [[ -f "$CUSTOM_EAR_FILE" ]] || die "EAR file not found: $CUSTOM_EAR_FILE"
+    [[ -n "$CUSTOM_APP_NAME" ]] || CUSTOM_APP_NAME="$(basename "$CUSTOM_EAR_FILE" .ear)"
+  else
+    [[ -n "$CUSTOM_APP_NAME" && -n "$CUSTOM_EAR_FILE" && -n "$CUSTOM_XML_FILE" ]] || { err "--app, --ear and --xml must all be provided together"; usage; exit 1; }
+    [[ -f "$CUSTOM_EAR_FILE" ]] || die "EAR file not found: $CUSTOM_EAR_FILE"
+    [[ -f "$CUSTOM_XML_FILE" ]] || die "XML file not found: $CUSTOM_XML_FILE"
+  fi
 else
   if [[ "$DEPLOY_OFFLINE" != "true" ]]; then
     if [[ "$BATCH_MODE" == "true" ]]; then
@@ -2438,10 +2445,12 @@ log "App output dir ....: $OUTPUT_APP_DIR"
     SAFE_APP="${APP_NAME//[^A-Za-z0-9._-]/_}"
     mkdir -p "$OUTPUT_APP_DIR"
     cp -f "$CUSTOM_EAR_FILE" "$FINAL_EAR"
-    cp -f "$CUSTOM_XML_FILE" "$FINAL_PROPS"
     log "Using custom artifacts for app '$APP_NAME'"
     log "  EAR ...............: $FINAL_EAR"
-    log "  Properties (XML)...: $FINAL_PROPS"
+    if [[ -n "$CUSTOM_XML_FILE" ]]; then
+      cp -f "$CUSTOM_XML_FILE" "$FINAL_PROPS"
+      log "  Properties (XML)...: $FINAL_PROPS"
+    fi
   else
   # Ensure variables are exported so envsubst can see them
   # ADMIN_PASS is passed inline to envsubst only — not exported to the global environment
