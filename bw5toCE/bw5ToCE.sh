@@ -739,7 +739,7 @@ BWCE_AAR_SUPPORTED_NAMES=(
   "sbl"     "adsbl"          # Siebel
   "files"   "adfiles"        # Files Adapter
   "as400"   "adas400"        # AS/400
-  "adapter_sdk"              # Generic Adapter SDK
+  "adapter_sdk" "adapter"    # Generic Adapter SDK
 )
 
 # Unsupported adapter componentSoftwareName values (parallel arrays):
