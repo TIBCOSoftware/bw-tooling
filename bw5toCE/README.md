@@ -70,7 +70,7 @@ Optional config file (`config.props`):
 
 Single app export → values → optional deploy
 ```sh
-./bw5-classic-to-ce.sh <DOMAIN> <APP_NAME> \
+./bw5ToCE.sh <DOMAIN> <APP_NAME> \
   [--namespace <ns>] \
   [--platform <PLATFORM_ENV>] \
   [--offline | --no-deploy | --no-start] \
@@ -79,19 +79,19 @@ Single app export → values → optional deploy
 
 Batch export all apps in a domain
 ```sh
-./bw5-classic-to-ce.sh <DOMAIN> --batch \
+./bw5ToCE.sh <DOMAIN> --batch \
   [--offline] [--namespace <ns>] [--platform <PLATFORM_ENV>] \
   [--no-deploy | --no-start] [--debug]
 ```
 
 Deploy offline from existing artifacts under `output/`
 ```sh
-./bw5-classic-to-ce.sh [<DOMAIN>] [<APP_NAME>] --deploy-offline --platform <PLATFORM_ENV>
+./bw5ToCE.sh [<DOMAIN>] [<APP_NAME>] --deploy-offline --platform <PLATFORM_ENV>
 ```
 
 Use custom artifacts (bypass AppManage)
 ```sh
-./bw5-classic-to-ce.sh --app <NAME> --ear <PATH> --xml <PATH> \
+./bw5ToCE.sh --app <NAME> --ear <PATH> --xml <PATH> \
   [--namespace <ns>] [--platform <PLATFORM_ENV>] \
   [--no-deploy | --no-start] [--debug]
 ```
@@ -119,7 +119,7 @@ Use custom artifacts (bypass AppManage)
 
 Single app export and deploy to platform
 ```sh
-./bw5-classic-to-ce.sh tibco516 DynamicHeaders \
+./bw5ToCE.sh tibco516 DynamicHeaders \
   --platform platform \
   --namespace bwce-dev
 ```
@@ -142,18 +142,18 @@ Analyze a pre-existing EAR (no domain required)
 
 Export only (no deployment), artifacts go to output/
 ```sh
-./bw5-classic-to-ce.sh tibco516 DynamicHeaders --offline
+./bw5ToCE.sh tibco516 DynamicHeaders --offline
 ```
 
 Batch export all apps from domain, then deploy offline from output/
 ```sh
-./bw5-classic-to-ce.sh tibco516 --batch --offline
-./bw5-classic-to-ce.sh --deploy-offline --platform platform
+./bw5ToCE.sh tibco516 --batch --offline
+./bw5ToCE.sh --deploy-offline --platform platform
 ```
 
 Deploy from custom artifacts
 ```sh
-./bw5-classic-to-ce.sh \
+./bw5ToCE.sh \
   --app DynamicHeaders \
   --ear /path/to/DynamicHeaders.ear \
   --xml /path/to/DynamicHeaders.xml \
