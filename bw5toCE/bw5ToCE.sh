@@ -1729,7 +1729,7 @@ batch_export_apps() {
 
   log "Starting AppManage batch export..." >&2
   local cmd=("$APPMANAGE_BIN" --propFile "${APPMANAGE_BIN_FOLDER}/AppManage.tra" -batchExport -domain "$DOMAIN" -user "$ADMIN_USER" -pw "$ADMIN_PASS" -dir "$tmp_dir")
-  log "CMD: ${cmd[*]}" >&2
+  log "CMD: ${cmd[*]//"$ADMIN_PASS"/'***'}" >&2
   # Capture both stdout and stderr (AppManage sometimes logs to stderr)
   "${cmd[@]}" >"$log_file" 2>&1 || true
 
