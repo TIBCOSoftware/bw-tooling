@@ -1,0 +1,15 @@
+# Configuration overrides for bw5-classic-to-ce.sh
+#
+# This file is optional. Define KEY=VALUE pairs to override behavior.
+# Lines starting with '#' are comments.
+#
+# Examples (uncomment and adjust as needed):
+# DEFAULT_BWCE_TARGET=onprem
+# AUTOPROVISION=false
+
+# Paths (override here or via environment)
+# TRA_HOME=/opt/tibco/tra/5.13
+# ENV_DIR=./env
+# WORK_DIR=./work
+# OUTPUT_DIR=./output
+# VALUES_FILE=./values.yaml

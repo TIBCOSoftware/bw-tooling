@@ -1,0 +1,5 @@
+# Ignore all generated artifacts under output/
+output/*
+!output/.gitignore
+
+/.vscode/sftp.json

@@ -1,0 +1,47 @@
+appConfig:
+  appId: ""
+  buildId: 
+  bwProfile: default.substvar
+  tags: ""
+appInit:
+  resources:
+    limits:
+      cpu: 100m
+      memory: 200Mi
+    requests:
+      cpu: 10m
+      memory: 10Mi
+appProps:
+  default.substvar: {}
+appSecrets:
+  default.substvar: {}
+autoscaling:
+  enabled: false
+bwapp:
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 384Mi
+engineProps:
+  BW_ENGINE_STEPCOUNT: "-1"
+  BW_ENGINE_THREADCOUNT: "8"
+  BW_OTEL_METRICS_ENABLED: "true"
+  BW_OTEL_TRACES_ENABLED: "false"
+fluentBit:
+  enabled: true
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+    requests:
+      cpu: 10m
+      memory: 10Mi
+fullnameOverride: 
+replicaCount: 1
+service:
+  ports:
+    - port: "9090"
+      targetPort: "9090"

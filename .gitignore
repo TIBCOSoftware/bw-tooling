@@ -1,2 +1,4 @@
 
 *.class
+/bw5toCE/env/*.env
+/bw5toCE/CLAUDE.md
