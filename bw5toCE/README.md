@@ -68,97 +68,92 @@ Optional config file (`config.props`):
 
 ## Usage
 
-Single app export → values → optional deploy
-```sh
-./bw5ToCE.sh <DOMAIN> <APP_NAME> \
-  [--namespace <ns>] \
-  [--platform <PLATFORM_ENV>] \
-  [--offline | --no-deploy | --no-start] \
-  [--debug]
+The script uses **verb-style subcommands** so the intent is always clear at a glance.
+
+```
+./bw5ToCE.sh <verb> [DOMAIN] [APP_NAME] [flags...]
 ```
 
-Batch export all apps in a domain
+| Verb | What it does |
+|------|-------------|
+| `migrate` | Export from TIBCO Admin + analyze + deploy to Platform (full flow) |
+| `export` | Export EAR and artifacts from TIBCO Admin only (no deploy) |
+| `deploy` | Deploy pre-existing artifacts from `output/` to Platform |
+| `analyze` | Run platform portability analysis only |
+
+### Examples
+
+Full migration (export → analyze → deploy)
 ```sh
-./bw5ToCE.sh <DOMAIN> --batch \
-  [--offline] [--namespace <ns>] [--platform <PLATFORM_ENV>] \
-  [--no-deploy | --no-start] [--debug]
+./bw5ToCE.sh migrate tibco516 DynamicHeaders \
+  --platform platform --namespace bwce-dev
 ```
 
-Deploy offline from existing artifacts under `output/`
+Batch migration of all apps in a domain
 ```sh
-./bw5ToCE.sh [<DOMAIN>] [<APP_NAME>] --deploy-offline --platform <PLATFORM_ENV>
+./bw5ToCE.sh migrate tibco516 --batch --platform platform
 ```
 
-Use custom artifacts (bypass AppManage)
+Export only — artifacts go to `output/`, no deploy
 ```sh
-./bw5ToCE.sh --app <NAME> --ear <PATH> --xml <PATH> \
-  [--namespace <ns>] [--platform <PLATFORM_ENV>] \
-  [--no-deploy | --no-start] [--debug]
+./bw5ToCE.sh export tibco516 DynamicHeaders
+./bw5ToCE.sh export tibco516 --batch
+```
+
+Deploy pre-existing artifacts from `output/` to Platform
+```sh
+./bw5ToCE.sh deploy --platform platform
+./bw5ToCE.sh deploy --app DynamicHeaders --ear /path/to/DynamicHeaders.ear --xml /path/to/DynamicHeaders.xml --platform platform --namespace bwce-dev
+```
+
+Analyze portability without deploying
+```sh
+./bw5ToCE.sh analyze tibco516 DynamicHeaders
+./bw5ToCE.sh analyze tibco516 DynamicHeaders --report output/report.html
+./bw5ToCE.sh analyze --ear /path/to/MyApp.ear --app MyApp
 ```
 
 ### Behavior
-- Loads `ADMIN_URL`/`ADMIN_USER`/`ADMIN_PASS` from `env/<DOMAIN>.env` (except `--deploy-offline`)
+- Loads `ADMIN_URL`/`ADMIN_USER`/`ADMIN_PASS` from `env/<DOMAIN>.env` (`migrate` and `export` only)
 - Exports EAR and deployment properties (XML) using AppManage
-- Generates YAML from Global Variables; updates repo `values.yaml` and saves a per‑app copy
+- Generates YAML from Global Variables; updates repo `values.yaml` and saves a per-app copy
 - If `--platform` is provided, uploads and deploys via Platform API using `env/<PLATFORM>.env`
-- Without `--platform`, deployment is skipped (artifacts are produced in `output/`)
 - `--namespace` is optional; if omitted, no namespace is passed to the Platform API
 
-### Modes and flags
-- --namespace <ns>: target namespace for deploy (only sent if provided)
-- --platform <name>: selects env/<name>.env for Platform API
-- `--offline`: export artifacts only (EAR + props + values); no upload or deploy
-- `--no-deploy`: upload EAR to Platform (requires `--platform`), but do not deploy
-- `--no-start`: deploy with `replicaCount=0` (requires `--platform`)
-- `--batch`: export all apps from a domain using AppManage `-batchExport`
-- `--deploy-offline`: deploy using only artifacts from `output/` via Platform API (requires `--platform`)
-- `--app <NAME> --ear <PATH> --xml <PATH>`: use provided EAR and deployment properties XML instead of exporting via AppManage. The script will place them under `output/<app>/` with the same naming convention, generate values from the XML, and proceed with the same deployment logic. Incompatible with `--batch` and `--offline`.
-- `--debug`: verbose logging
+### Flags
 
-### Quick examples
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `--platform <name>` | `migrate`, `deploy` | Platform environment (uses `env/<name>.env`) |
+| `--namespace <ns>` | `migrate`, `deploy` | Target namespace for deploy |
+| `--batch` | `migrate`, `export` | Export all apps in the domain |
+| `--no-deploy` | `migrate` | Upload EAR to Platform but do not deploy |
+| `--no-start` | `migrate`, `deploy` | Deploy with `replicaCount=0` |
+| `--force` | `migrate`, `deploy` | Upgrade if app already exists |
+| `--no-analyze` | `migrate` | Skip portability analysis |
+| `--allow-blockers` | `migrate` | Deploy even if BLOCKER issues found |
+| `--no-best-practices` | `migrate`, `analyze` | Suppress quality suggestions in report |
+| `--report [<path>]` | `migrate`, `analyze` | Generate HTML readiness report |
+| `--report-cli [<path>]` | `migrate`, `analyze` | Generate plain-text readiness report |
+| `--app <name>` | `deploy`, `analyze` | Application name (with `--ear`/`--xml`) |
+| `--ear <path>` | `deploy`, `analyze` | Path to existing EAR file |
+| `--xml <path>` | `deploy` | Path to deployment properties XML |
+| `--insecure-tls` | any | Disable TLS certificate verification |
+| `--debug` | any | Verbose logging |
 
-Single app export and deploy to platform
-```sh
-./bw5ToCE.sh tibco516 DynamicHeaders \
-  --platform platform \
-  --namespace bwce-dev
-```
+### Legacy flag syntax (still supported)
 
-Analyze an app for platform portability (no deploy)
-```sh
-./bw5ToCE.sh tibco516 DynamicHeaders --analyze-only
-```
+The original flag-only syntax continues to work without changes.
 
-Analyze with HTML report
-```sh
-./bw5ToCE.sh tibco516 DynamicHeaders \
-  --analyze-only --report output/report.html
-```
-
-Analyze a pre-existing EAR (no domain required)
-```sh
-./bw5ToCE.sh --app MyApp --ear /path/to/MyApp.ear --analyze-only
-```
-
-Export only (no deployment), artifacts go to output/
-```sh
-./bw5ToCE.sh tibco516 DynamicHeaders --offline
-```
-
-Batch export all apps from domain, then deploy offline from output/
-```sh
-./bw5ToCE.sh tibco516 --batch --offline
-./bw5ToCE.sh --deploy-offline --platform platform
-```
-
-Deploy from custom artifacts
-```sh
-./bw5ToCE.sh \
-  --app DynamicHeaders \
-  --ear /path/to/DynamicHeaders.ear \
-  --xml /path/to/DynamicHeaders.xml \
-  --platform platform --namespace bwce-dev
-```
+| Old syntax | Equivalent new syntax |
+|-----------|----------------------|
+| `./bw5ToCE.sh DOMAIN APP --platform P` | `./bw5ToCE.sh migrate DOMAIN APP --platform P` |
+| `./bw5ToCE.sh DOMAIN APP --offline` | `./bw5ToCE.sh export DOMAIN APP` |
+| `./bw5ToCE.sh DOMAIN APP --analyze-only` | `./bw5ToCE.sh analyze DOMAIN APP` |
+| `./bw5ToCE.sh --deploy-offline --platform P` | `./bw5ToCE.sh deploy --platform P` |
+| `./bw5ToCE.sh --app N --ear E --xml X --platform P` | `./bw5ToCE.sh deploy --app N --ear E --xml X --platform P` |
+| `./bw5ToCE.sh DOMAIN --batch --platform P` | `./bw5ToCE.sh migrate DOMAIN --batch --platform P` |
+| `./bw5ToCE.sh DOMAIN --batch --offline` | `./bw5ToCE.sh export DOMAIN --batch` |
 
 ## Portability Analysis
 

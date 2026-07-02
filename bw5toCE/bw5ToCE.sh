@@ -6,7 +6,7 @@ set -euo pipefail
 # ==============================
 
 # Script metadata
-VERSION="0.1"
+VERSION="0.2"
 AUTHOR="Alexandre Vazquez <alexandre.vazquez@tibco.com>"
 
 # Optional external configuration overrides
@@ -14,6 +14,7 @@ CONFIG_PROPS_FILE="${CONFIG_PROPS_FILE:-./config.props}"
 
 # AppManage flags vary by installation. Tweak the templates below if needed.
 # Template variables are shell-style ${VARS} resolved via envsubst.
+# shellcheck disable=SC2016  # single quotes intentional: envsubst expands these at runtime
 APPMANAGE_EXPORT_EAR_TMPL='${APPMANAGE_BIN} --propFile ${APPMANAGE_BIN_FOLDER}/AppManage.tra -export -domain "${DOMAIN}" -app "${APP_NAME}" -user "${ADMIN_USER}" -pw "${ADMIN_PASS}" -out "${EAR_PATH}.xml" -ear "${EAR_PATH}" -genEar'
 # Some BW5 versions use -host/-port instead of -url; edit accordingly if needed.
 
@@ -66,9 +67,11 @@ check_prereqs() {
 
   if (( has_missing )); then
     printf '%s\n' "$border" >&2
+    # shellcheck disable=SC2059  # $fmt is a dynamic column-width format string, intentional
     printf "$fmt" "Tool" "Status" "Path" >&2
     printf '%s\n' "$border" >&2
     for (( i=0; i<${#tools[@]}; i++ )); do
+      # shellcheck disable=SC2059  # $fmt is a dynamic column-width format string, intentional
       printf "$fmt" "${tools[$i]}" "${statuses[$i]}" "${paths[$i]}" >&2
     done
     printf '%s\n' "$border" >&2
@@ -161,8 +164,11 @@ yq_set() {
 to_k8s_name() {
   local name="$1"
   name="$(echo "$name" | tr '[:upper:]' '[:lower:]')"
+  # shellcheck disable=SC2001  # character-class / quantifier regex requires sed, not parameter expansion
   name="$(echo "$name" | sed 's/[^a-z0-9-]/-/g')"
+  # shellcheck disable=SC2001
   name="$(echo "$name" | sed 's/-\{2,\}/-/g')"
+  # shellcheck disable=SC2001
   name="$(echo "$name" | sed 's/^-//; s/-$//')"
   echo "$name"
 }
@@ -177,6 +183,7 @@ to_k8s_label_value() {
   local value="$1"
   value="${value//\//_}"
   value="${value//[[:space:]]/}"
+  # shellcheck disable=SC2001  # character-class regex requires sed
   value="$(echo "$value" | sed 's/[^A-Za-z0-9_.-]/_/g')"
   value="$(echo "$value" | sed 's/^[^A-Za-z0-9]*//; s/[^A-Za-z0-9]*$//')"
   echo "$value"
@@ -213,14 +220,12 @@ set_values_appconfig_tags() {
   local values_file="$1"
   local app_disp_name="$2"
   local override_csv="${3-}"
-  local out tjson tcsv
+  local out tcsv
   if [[ -n "$override_csv" ]]; then
     # Use explicit CSV override
     tcsv="$override_csv"
   else
     out="$(compute_tags_vars "$app_disp_name")"
-    # split TSV to vars
-    tjson="${out%%$'\t'*}"
     tcsv="${out#*$'\t'}"
   fi
   # Write CSV into values.yaml under appConfig.tags, forcing double quotes
@@ -232,6 +237,7 @@ set_values_appconfig_tags() {
     YQ_APPCONFIG_TAGS="$tcsv" yq eval -i '.appConfig.tags = strenv(YQ_APPCONFIG_TAGS) | (.appConfig.tags style="double")' "$values_file"
   else
     # python yq: set the value, then post-process the specific line to ensure quoting
+    # shellcheck disable=SC2016  # $v is a yq variable, not a shell variable
     yq -y -i --arg v "$tcsv" '.appConfig.tags = $v' "$values_file"
     local tmp
     tmp="$(mktemp)"
@@ -277,8 +283,7 @@ extract_error_message() {
                    elif type=="object" then (.message // .detail // tostring)
                    else empty end)
        // .status
-       // empty)'
-      2>/dev/null || true)
+       // empty)' 2>/dev/null || true)
   fi
   # Fallback to raw body if jq not available or message empty/null
   if [[ -z "$msg" || "$msg" == "null" ]]; then
@@ -291,13 +296,13 @@ extract_error_message() {
 # Prefer upload-specific error message from Platform response
 extract_upload_error_reason() {
   local body="$1"
-  echo "$(extract_errmsg_any "$body")"
+  extract_errmsg_any "$body"
 }
 
 # Extract upload-specific detailed reason (errDetail) if present
 extract_upload_error_detail() {
   local body="$1"
-  echo "$(json_field_text "$body" '.errDetail')"
+  json_field_text "$body" '.errDetail'
 }
 # Extract errMsg from body or nested JSON inside known fields; fallback to readable message
 extract_errmsg_any() {
@@ -325,25 +330,29 @@ extract_errmsg_any() {
   if [[ -z "$msg" || "$msg" == "null" ]]; then
     msg=$(extract_error_message "$body")
   fi
-  echo "$(normalize_whitespace "$msg")"
+  normalize_whitespace "$msg"
 }
 
 # Extract raw errDetail from Platform response (deployment errors)
 extract_errdetail() {
   local body="$1"
-  echo "$(json_field_text "$body" '.errDetail')"
+  json_field_text "$body" '.errDetail'
 }
 
 usage() {
   cat <<EOF
 Usage:
-  $(basename "$0") <DOMAIN> <APP_NAME> [--namespace <ns>] [--platform <PLATFORM_ENV>] [--offline] [--no-deploy] [--no-start]
-  $(basename "$0") <DOMAIN> --batch [--offline] [--namespace <ns>] [--platform <PLATFORM_ENV>] [--no-deploy] [--no-start]
-  $(basename "$0") [<DOMAIN>] [<APP_NAME>] --deploy-offline --platform <PLATFORM_ENV>
-  $(basename "$0") --app <NAME> --ear <PATH> --xml <PATH> [--namespace <ns>] [--platform <PLATFORM_ENV>] [--no-deploy] [--no-start]
-  $(basename "$0") --ear <PATH> [--app <NAME>] --analyze-only [--report [<path>]]
-  $(basename "$0") <DOMAIN> <APP_NAME> --analyze-only [--report [<path>]]
+  $(basename "$0") migrate <DOMAIN> <APP_NAME> --platform <PLATFORM_ENV> [--namespace <ns>] [--no-deploy] [--no-start] [--no-analyze]
+  $(basename "$0") export  <DOMAIN> <APP_NAME>
+  $(basename "$0") export  <DOMAIN> --batch
+  $(basename "$0") deploy  --platform <PLATFORM_ENV> [--namespace <ns>] [--no-start]
+  $(basename "$0") deploy  --app <NAME> --ear <PATH> --xml <PATH> --platform <PLATFORM_ENV> [--namespace <ns>]
+  $(basename "$0") analyze <DOMAIN> <APP_NAME> [--report [<path>]] [--report-cli [<path>]]
+  $(basename "$0") analyze --ear <PATH> [--app <NAME>] [--report [<path>]]
   $(basename "$0") --version
+
+Legacy flags (still supported):
+  $(basename "$0") <DOMAIN> <APP_NAME> [--platform <PLATFORM_ENV>] [--offline] [--analyze-only] [--deploy-offline]
 
 Behavior:
   - Loads ADMIN_URL/ADMIN_USER/ADMIN_PASS from: ${ENV_DIR:-./env}/<DOMAIN>.env
@@ -366,6 +375,7 @@ Offline and control flags:
 Portability analysis flags:
   --analyze-only       Run analysis only; do not upload or deploy (no --platform needed)
   --no-analyze         Skip portability analysis entirely (mutually exclusive with --analyze-only)
+  --no-best-practices  Suppress best-practice quality suggestions from the analysis report
   --report [<path>]    Generate HTML readiness report (default: output/<app>-analysis-<ts>.html)
   --report-cli [<path>] Generate plain-text readiness report (default: output/<app>-analysis-<ts>.txt)
   --allow-blockers     Deploy even if BLOCKER issues are found (use with caution)
@@ -443,7 +453,6 @@ generate_yaml_from_global_vars() {
 # Batch report utilities
 # =====================
 
-declare -a BATCH_REPORT_ROWS=()
 declare -a BATCH_NAMES=()
 declare -a BATCH_STATUS=()
 declare -a BATCH_NOTES=()
@@ -451,6 +460,7 @@ declare -a BATCH_HTML_LINKS=()   # relative path to individual HTML report; empt
 declare -i BATCH_COUNT=0
 LAST_ERROR_DETAILS=""
 PLATFORM_BUILD_ID=""
+AM_LAST_ERROR=""
 
 add_report_row() {
   local name="$1" status="$2" notes="$3" html_link="${4:-}"
@@ -482,8 +492,10 @@ print_batch_report() {
   # Limit notes width growth for readability in terminals
   (( notes_w > 100 )) && notes_w=100
 
-  local border="+$(repeat_char '-' $((name_w+2)))+$(repeat_char '-' $((status_w+2)))+$(repeat_char '-' $((notes_w+2)))+"
-  local fmt="| %-$(printf %s "$name_w")s | %-$(printf %s "$status_w")s | %-$(printf %s "$notes_w")s |\n"
+  local border fmt
+  border="+$(repeat_char '-' $((name_w+2)))+$(repeat_char '-' $((status_w+2)))+$(repeat_char '-' $((notes_w+2)))+"
+  # shellcheck disable=SC2059  # $fmt is a dynamic column-width format string, intentional
+  fmt="| %-$(printf %s "$name_w")s | %-$(printf %s "$status_w")s | %-$(printf %s "$notes_w")s |\n"
   local out_file="${OUTPUT_DIR}/batch-report-${domain}-${ts}.txt"
   local html_file="${OUTPUT_DIR}/batch-report-${domain}-${ts}.html"
 
@@ -496,6 +508,7 @@ print_batch_report() {
 
   # Header row
   local line
+  # shellcheck disable=SC2059
   printf -v line "$fmt" "$header_name" "$header_status" "$header_notes"
   printf '%s' "$line"
   printf '%s' "$line" >> "$out_file"
@@ -509,8 +522,9 @@ print_batch_report() {
     name="${BATCH_NAMES[$i]}"; status="${BATCH_STATUS[$i]}"; notes="${BATCH_NOTES[$i]}"
     local shown_notes="$notes"
     if (( ${#shown_notes} > notes_w )); then
-      shown_notes="${shown_notes:0:$(($notes_w-3))}..."
+      shown_notes="${shown_notes:0:$((notes_w-3))}..."
     fi
+    # shellcheck disable=SC2059
     printf -v line "$fmt" "$name" "$status" "$shown_notes"
     printf '%s' "$line"
     printf '%s' "$line" >> "$out_file"
@@ -770,7 +784,7 @@ _analysis_known_unsupported_label() {
 _analysis_add_blocker()  { ANALYSIS_BLOCKERS+=("$1"$'\t'"$2"$'\t'"$3"); }
 _analysis_add_warning()  { ANALYSIS_WARNINGS+=("$1"$'\t'"$2"$'\t'"$3"); }
 _analysis_add_note()     { ANALYSIS_NOTES+=("$1"$'\t'"$2"$'\t'"$3"); }
-_analysis_add_quality()  { ANALYSIS_QUALITY+=("$1"$'\t'"$2"$'\t'"$3"); }
+_analysis_add_quality()  { [[ "${NO_BEST_PRACTICES:-false}" == "true" ]] && return 0; ANALYSIS_QUALITY+=("$1"$'\t'"$2"$'\t'"$3"); }
 
 # Returns the trimmed value when it looks hardcoded (non-empty, no GV reference).
 # BW5 Global Variable references use the %%VAR_NAME%% syntax in resource files.
@@ -851,14 +865,6 @@ _analysis_scan_process() {
     fi
   done <<< "$types"
 
-  # --- WARNING: Wait & Notify ---
-  local wait_notify
-  wait_notify=$(echo "$types" | grep -E 'com\.tibco\.plugin\.waitnotify\.|WaitForNotif|WaitNotif|NotifyActivity' || true)
-  if [[ -n "$wait_notify" ]]; then
-    _analysis_add_warning "$fname" "Wait & Notify — Review Scope" \
-      "Wait/Notify pattern detected. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: TIBCO BusinessWorks 5 (Containers) follows standard Kubernetes practices where each instance is independent, and there is no out-of-the-box inter-instance communication for this feature."
-  fi
-
   # --- WARNING: Checkpoint ---
   if echo "$types" | grep -q 'CheckpointActivity'; then
     if [[ "$has_db_checkpoint" == "true" ]]; then
@@ -868,16 +874,6 @@ _analysis_scan_process() {
       _analysis_add_warning "$fname" "Checkpoint — File Storage" \
         "Checkpoint detected without database storage. File-based checkpoint storage requires additional persistent storage such as a PersistentVolumeClaim (PVC) and volume mount. We recommend switching to a JDBC-based Checkpoint Data Repository for the best experience in a containerized environment."
     fi
-  fi
-
-  # --- WARNING: Module Shared Variable usage (scope check done via shared resources) ---
-  # We flag the process if it references a .moduleSharedVariable resource
-  local var_refs
-  var_refs=$(grep -oE '<variableConfig>[^<]+</variableConfig>' "$pfile" 2>/dev/null \
-    | sed 's/<variableConfig>//g; s/<\/variableConfig>//g' || true)
-  if echo "$var_refs" | grep -q '\.moduleSharedVariable\|\.sharedvariable'; then
-    _analysis_add_warning "$fname" "Module Shared Variable — Review Scope" \
-      "Module Shared Variable referenced. If the scope is single-instance this works as expected. For cross-instance scenarios, please review the design: consider switching to a DB-persisted Shared Variable, following similar principles as Checkpoint storage."
   fi
 
   # --- WARNING: Engine Command Activity (operational lifecycle commands) ---
@@ -1047,19 +1043,51 @@ _analysis_scan_shared_resources() {
     resource_type=$(grep -oE '<resourceType>[^<]+</resourceType>' "$rfile" 2>/dev/null \
       | sed 's/<resourceType>//g; s/<\/resourceType>//g' | head -1 || true)
 
-    # Module Shared Variable without DB persistence
-    if [[ "$resource_type" == "ae.shared.moduleSharedVariable" ]]; then
-      local persistence
-      persistence=$(grep -oE '<persistence>[^<]+</persistence>' "$rfile" 2>/dev/null \
-        | sed 's/<persistence>//g; s/<\/persistence>//g' | head -1 || true)
-      if [[ "$persistence" != "database" && "$persistence" != "jdbc" ]]; then
-        _analysis_add_warning "$fname" "Module Shared Variable — Non-DB Persistence" \
-          "Module Shared Variable with non-database persistence ('${persistence:-none/default}') detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, switching to JDBC-based persistence is recommended to ensure consistency across replicas."
+    # Shared Variable or Module Shared Variable with multi-engine enabled
+    if [[ "$resource_type" == "ae.shared.sharedVariable" || "$resource_type" == "ae.shared.moduleSharedVariable" ]]; then
+      local multi_engine
+      multi_engine=$(grep -oE '<multi-engine>[^<]+</multi-engine>' "$rfile" 2>/dev/null \
+        | sed 's/<multi-engine>//g; s/<\/multi-engine>//g' | head -1 || true)
+      if [[ "$multi_engine" == "true" ]]; then
+        local persistence
+        persistence=$(grep -oE '<persistent>[^<]+</persistent>' "$rfile" 2>/dev/null \
+          | sed 's/<persistent>//g; s/<\/persistent>//g' | head -1 || true)
+        if [[ "$persistence" == "true" || "$persistence" == "database" || "$persistence" == "jdbc" ]]; then
+          _analysis_add_warning "$fname" "Shared Variable — Multi-Engine with Persistence" \
+            "Shared Variable with multi-engine enabled and persistence active detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod with no shared in-memory state. File-based persistence requires a PersistentVolumeClaim (PVC) shared across replicas; for true cross-instance sharing, switching to JDBC-based persistence is recommended."
+        else
+          _analysis_add_warning "$fname" "Shared Variable — Multi-Engine Enabled" \
+            "Shared Variable with multi-engine enabled detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod with no shared in-memory state. Cross-instance sharing will not work out of the box — review the design and consider JDBC-based persistence or an external state store."
+        fi
       fi
     fi
+    # Notify Configuration without localOnly
+    if [[ "$resource_type" == "ae.shared.notifySharedConfig" ]]; then
+      local local_only
+      local_only=$(grep -oE '<localOnly>[^<]+</localOnly>' "$rfile" 2>/dev/null \
+        | sed 's/<localOnly>//g; s/<\/localOnly>//g' | head -1 || true)
+      if [[ "$local_only" != "true" ]]; then
+        _analysis_add_warning "$fname" "Notify Configuration — Cross-Instance Scope" \
+          "Notify Configuration without localOnly=true detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod — Wait/Notify signals are not propagated across instances. Set localOnly=true if cross-instance notification is not required, or redesign using a messaging solution such as TIBCO EMS or TIBCO Cloud Messaging."
+      fi
+    fi
+
+    # Lock Object with multi-engine enabled
+    if [[ "$resource_type" == "ae.shared.lockConfig" ]]; then
+      local multi_engine
+      multi_engine=$(grep -oE '<multi-engine>[^<]+</multi-engine>' "$rfile" 2>/dev/null \
+        | sed 's/<multi-engine>//g; s/<\/multi-engine>//g' | head -1 || true)
+      if [[ "$multi_engine" == "true" ]]; then
+        _analysis_add_warning "$fname" "Lock Object — Multi-Engine Enabled" \
+          "Lock Object with multi-engine enabled detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod with no shared locking mechanism. Cross-instance locking will not work out of the box — review the design and consider an external distributed lock (e.g., database row lock or a coordination service)."
+      fi
+    fi
+
   done < <(find "$res_dir" \( \
     -name "*.moduleSharedVariable" -o \
-    -name "*.sharedvariable" \
+    -name "*.sharedvariable" -o \
+    -name "*.sharednotify" -o \
+    -name "*.sharedLock" \
     \) -print0 2>/dev/null)
 }
 
@@ -1072,7 +1100,8 @@ _analysis_scan_aar() {
   local fname
   fname="$(basename "$aar_file")"
 
-  local aar_dir="$work_dir/$(basename "$aar_file").analysis.d"
+  local aar_dir
+  aar_dir="$work_dir/$(basename "$aar_file").analysis.d"
   mkdir -p "$aar_dir"
   unzip -qo "$aar_file" -d "$aar_dir" 2>/dev/null || return 0
 
@@ -1345,7 +1374,7 @@ tr:last-child td{border-bottom:none}
 HTMLEOF
 
   # Helper to append a table section
-  local entry file item desc row_class sec_class hdr_class hdr_icon
+  local entry file item desc
   _append_section() {
     local -n _arr="$1"
     local _row_class="$2" _hdr_class="$3" _title="$4"
@@ -1409,6 +1438,7 @@ EOF
     # Extract .globalVariables from the generated YAML as JSON and inject via --argjson
     local gv_json
     gv_json="$(yq -r '.globalVariables | tojson' "$gv_yaml")"
+    # shellcheck disable=SC2016  # $GV is a yq variable, not a shell variable
     yq -y -i --argjson GV "$gv_json" '.appProps["default.substvar"] = $GV' "$values"
   fi
 
@@ -1427,6 +1457,24 @@ load_platform_env() {
   : "${PLATFORM_TOKEN:?Missing PLATFORM_TOKEN in $file}"
 }
 
+_log_api_req() {
+  if [[ "$DEBUG" != "true" ]]; then return 0; fi
+  local method="$1" url="$2"; shift 2
+  log "→ ${method} ${url}"
+  local arg; for arg in "$@"; do log "  ${arg}"; done
+}
+
+_log_api_resp() {
+  if [[ "$DEBUG" != "true" ]]; then return 0; fi
+  local code="$1" body="$2" pretty
+  if command -v jq >/dev/null 2>&1; then
+    pretty=$(printf '%s' "$body" | jq -C . 2>/dev/null || printf '%s' "$body")
+  else
+    pretty="$body"
+  fi
+  log "← HTTP ${code}  ${pretty}"
+}
+
 platform_api_upload_build() {
   # Uploads EAR to Platform and echoes buildId on success
   local ear_file="$1"
@@ -1441,6 +1489,11 @@ platform_api_upload_build() {
 
   local http_code body_file upload_resp build_id
   body_file="$(mktemp)"
+  _log_api_req "POST" "$upload_url" \
+    "Authorization: Bearer ***" \
+    "Content-Type: multipart/form-data" \
+    "-F request={\"dependencies\":[],\"tags\":[],\"buildName\":\"${build_name}\"}" \
+    "-F earFile=@${ear_file}"
   http_code=$(curl "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$body_file" -H "Authorization: Bearer ${PLATFORM_TOKEN}" -X POST \
     "$upload_url" \
     -H 'accept: application/json' \
@@ -1449,6 +1502,7 @@ platform_api_upload_build() {
     -F "earFile=@${ear_file}" )
   upload_resp="$(cat "$body_file")"
   rm -f "$body_file"
+  _log_api_resp "$http_code" "$upload_resp"
 
   if [[ "$http_code" == "000" ]]; then
     LAST_ERROR_DETAILS="No connectivity to Platform: server unreachable"
@@ -1518,6 +1572,10 @@ platform_api_deploy_values() {
 
   local deploy_http_code deploy_body_file deploy_resp
   deploy_body_file="$(mktemp)"
+  _log_api_req "POST" "$deploy_url" \
+    "Authorization: Bearer ***" \
+    "Content-Type: multipart/form-data" \
+    "-F values.yaml=@${values_file}"
   deploy_http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$deploy_body_file" -X POST \
     "$deploy_url" \
     -H 'accept: application/json' \
@@ -1525,6 +1583,7 @@ platform_api_deploy_values() {
     -F "values.yaml=@${values_file};type=application/x-yaml")
   deploy_resp="$(cat "$deploy_body_file")"
   rm -f "$deploy_body_file"
+  _log_api_resp "$deploy_http_code" "$deploy_resp"
 
   if [[ "$deploy_http_code" == "000" ]]; then
     LAST_ERROR_DETAILS="No connectivity to Platform: server unreachable"
@@ -1564,13 +1623,19 @@ platform_api_check_app_exists() {
   k8s_name="$(to_k8s_name "$app_name")"
   list_url="${PLATFORM_BW5CE_BASE_URL}/public/v1/dp/apps?filterKey=name&filterValue=${k8s_name}"
   body_file="$(mktemp)"
+  _log_api_req "GET" "$list_url" \
+    "Authorization: Bearer ***"
   http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$body_file" -X GET \
     "$list_url" \
     -H 'accept: application/json')
   resp="$(cat "$body_file")"
   rm -f "$body_file"
+  _log_api_resp "$http_code" "$resp"
   if [[ "$http_code" == "000" ]]; then
     err "No connectivity to Platform (could not reach: $list_url)"
+    echo ""; return 1
+  fi
+  if [[ "$http_code" -lt 200 || "$http_code" -ge 300 ]]; then
     echo ""; return 1
   fi
   app_id=$(echo "$resp" | jq -r --arg name "$k8s_name" '((.. | arrays | .[] | objects | select(.appName == $name) | .appId)) // empty' 2>/dev/null || echo "")
@@ -1585,6 +1650,10 @@ platform_api_upgrade_values() {
   local url http_code body_file resp
   url="${PLATFORM_BW5CE_BASE_URL}/public/v2/dp/apps/${app_id}/release/values?buildId=${build_id}"
   body_file="$(mktemp)"
+  _log_api_req "PUT" "$url" \
+    "Authorization: Bearer ***" \
+    "Content-Type: multipart/form-data" \
+    "-F values.yaml=@${values_file}"
   http_code=$(curl -H "Authorization: Bearer ${PLATFORM_TOKEN}" "${CURL_OPTS[@]}" -s -w '%{http_code}' -o "$body_file" -X PUT \
     "$url" \
     -H 'accept: application/json' \
@@ -1592,6 +1661,7 @@ platform_api_upgrade_values() {
     -F "values.yaml=@${values_file};type=application/x-yaml")
   resp="$(cat "$body_file")"
   rm -f "$body_file"
+  _log_api_resp "$http_code" "$resp"
 
   if [[ "$http_code" == "000" ]]; then
     LAST_ERROR_DETAILS="No connectivity to Platform: server unreachable"
@@ -1639,8 +1709,7 @@ set_replica_count_zero() {
 platform_upload_and_deploy() {
   local ear_file="$1"        # final EAR
   local values_file="$2"     # local values (OUT_VALUES) to merge & upload
-  local out_dir="$3"
-  local app_disp_name="${4:-}"  # display app name for lookup; falls back to APP_NAME
+  local app_disp_name="${3:-}"  # display app name for lookup; falls back to APP_NAME
 
   require_bin curl
   require_bin jq
@@ -1717,6 +1786,77 @@ platform_upload_and_deploy() {
   return ${__deploy_rc:-0}
 }
 
+# ==========================
+# AppManage execution helpers
+# ==========================
+
+# Detect known AppManage error patterns in one output line.
+# Prints a user-friendly message to stdout; returns 0 if detected, 1 if not.
+_am_detect_error_line() {
+  local line="${1-}"
+  [[ -z "$line" ]] && return 1
+  if printf '%s' "$line" | grep -qiE 'authentication.fail|access.deni|invalid.user|bad.credenti|incorrect.password|TIBCOSecurityException|not authenticated|not.logged.in'; then
+    printf 'Authentication failed — check ADMIN_USER / ADMIN_PASS in the domain env file'; return 0
+  fi
+  if printf '%s' "$line" | grep -qiE 'no domain named|domain.not.found|could not find domain|no such domain|domain.*does not exist'; then
+    printf 'Domain not found — check ADMIN_URL and domain name'; return 0
+  fi
+  if printf '%s' "$line" | grep -qiE 'Connection refused|ConnectException|No route to host|connect.*timed.out|UnknownHostException|SocketException'; then
+    printf 'Cannot reach TIBCO Administrator — check ADMIN_URL (host / port)'; return 0
+  fi
+  if printf '%s' "$line" | grep -qiE 'application.*does not exist|application.*not found|no application named'; then
+    printf 'Application not found in domain — check APP_NAME'; return 0
+  fi
+  if printf '%s' "$line" | grep -qiE 'Failed\.[[:space:]]+Please check log|^Failed\b'; then
+    printf '%s' "$(normalize_whitespace "$line" | cut -c1-200)"; return 0
+  fi
+  if printf '%s' "$line" | grep -qiE '(^[[:space:]]*(\[ERROR\]|Error:)|[[:space:]]Error[[:space:]]+\[)'; then
+    # Strip log4j prefix (up to last "] ") and leading Java exception class
+    local _msg
+    _msg="$(printf '%s' "$line" | sed 's/.*\][[:space:]]\{1,\}//')"
+    _msg="$(printf '%s' "$_msg" | sed 's/^[a-z][a-zA-Z.]*Exception: //')"
+    printf '%s' "$(normalize_whitespace "$_msg" | cut -c1-200)"; return 0
+  fi
+  return 1
+}
+
+# Scan lines from stdin through _am_detect_error_line; updates AM_LAST_ERROR (global).
+_am_scan_lines() {
+  local _prefix="${1:-AppManage}" _line _detected
+  while IFS= read -r _line; do
+    # skip Java stack trace lines
+    [[ "$_line" =~ ^[[:space:]]*at[[:space:]] ]] && continue
+    log "${_prefix}: $(normalize_whitespace "$_line")"
+    _detected="$(_am_detect_error_line "$_line")" || true
+    if [[ -n "$_detected" && -z "$AM_LAST_ERROR" ]]; then
+      AM_LAST_ERROR="$_detected"
+      err "${_prefix}: $AM_LAST_ERROR"
+    fi
+  done
+}
+
+# Run an AppManage command (as an eval string).
+# Scans stdout/stderr and new lines in ApplicationManagement.log for errors.
+# Detected errors are printed via err() and stored in AM_LAST_ERROR.
+_run_appmanage_cmd() {
+  local cmd_str="$1"
+  AM_LAST_ERROR=""
+
+  local am_log
+  am_log="$(dirname "${APPMANAGE_BIN_FOLDER%/bin}")/domain/${DOMAIN}/logs/ApplicationManagement.log"
+  local before_lines=0
+  [[ -f "$am_log" ]] && before_lines=$(wc -l < "$am_log")
+
+  local _am_out
+  _am_out="$(mktemp)"
+  eval "$cmd_str" >"$_am_out" 2>&1 || true
+
+  _am_scan_lines "AppManage" < <(tail -n "+$((before_lines + 1))" "$am_log" 2>/dev/null)
+  _am_scan_lines "AppManage" < "$_am_out"
+
+  rm -f "$_am_out"
+}
+
 # ==============
 # Batch features
 # ==============
@@ -1730,8 +1870,16 @@ batch_export_apps() {
   log "Starting AppManage batch export..." >&2
   local cmd=("$APPMANAGE_BIN" --propFile "${APPMANAGE_BIN_FOLDER}/AppManage.tra" -batchExport -domain "$DOMAIN" -user "$ADMIN_USER" -pw "$ADMIN_PASS" -dir "$tmp_dir")
   log "CMD: ${cmd[*]//"$ADMIN_PASS"/'***'}" >&2
-  # Capture both stdout and stderr (AppManage sometimes logs to stderr)
+
+  local am_log
+  am_log="$(dirname "${APPMANAGE_BIN_FOLDER%/bin}")/domain/${DOMAIN}/logs/ApplicationManagement.log"
+  local before_lines=0
+  [[ -f "$am_log" ]] && before_lines=$(wc -l < "$am_log")
+
   "${cmd[@]}" >"$log_file" 2>&1 || true
+
+  _am_scan_lines "AppManage" < "$log_file" >&2
+  _am_scan_lines "AppManage" < <(tail -n "+$((before_lines + 1))" "$am_log" 2>/dev/null) >&2
 
   # Parse lines like:
   # [ AppName ]: Finished exporting ear file  /path/to/AppName.ear
@@ -1945,7 +2093,7 @@ batch_process_app() {
     fi
     if [[ "$NO_START" == "true" ]]; then
       set_replica_count_zero "$out_values"
-      if platform_upload_and_deploy "$final_ear" "$out_values" "$app_out_dir"; then
+      if platform_upload_and_deploy "$final_ear" "$out_values"; then
         log "[${app_disp}] no-start: deployed with replicaCount=0."
         add_report_row "$app_disp" "DEPLOYED" "no-start (replicaCount=0)" "$_app_report_link"
       else
@@ -1953,7 +2101,7 @@ batch_process_app() {
       fi
       return 0
     fi
-    if platform_upload_and_deploy "$final_ear" "$out_values" "$app_out_dir" "$app_base"; then
+    if platform_upload_and_deploy "$final_ear" "$out_values" "$app_base"; then
       log "[${app_disp}] Platform deployment done."
       add_report_row "$app_disp" "DEPLOYED" "" "$_app_report_link"
     else case "$?" in
@@ -2003,9 +2151,15 @@ deploy_offline_from_output() {
     local latest_ear="" latest_values="" latest_props=""
     # Nullglob-safe: collect glob matches into array first to avoid ls listing cwd
     local -a _g
-    _g=("$app_dir"/*.ear);                    (( ${#_g[@]} > 0 )) && latest_ear=$(ls -t "${_g[@]}" | head -n1) || true
-    _g=("$app_dir"/*-values.yaml);            (( ${#_g[@]} > 0 )) && latest_values=$(ls -t "${_g[@]}" | head -n1) || true
-    _g=("$app_dir"/*-deployment-props-*.xml); (( ${#_g[@]} > 0 )) && latest_props=$(ls -t "${_g[@]}" | head -n1) || true
+    _g=("$app_dir"/*.ear)
+    # shellcheck disable=SC2012  # ls -t needed for time-based sorting; glob pre-validated
+    if (( ${#_g[@]} > 0 )); then latest_ear=$(ls -t "${_g[@]}" | head -n1); fi
+    _g=("$app_dir"/*-values.yaml)
+    # shellcheck disable=SC2012
+    if (( ${#_g[@]} > 0 )); then latest_values=$(ls -t "${_g[@]}" | head -n1); fi
+    _g=("$app_dir"/*-deployment-props-*.xml)
+    # shellcheck disable=SC2012
+    if (( ${#_g[@]} > 0 )); then latest_props=$(ls -t "${_g[@]}" | head -n1); fi
     if [[ -n "$latest_props" && -f "$latest_props" ]]; then
       if ! is_bw_properties_xml "$latest_props"; then
         log "[offline] Skipping $app_label: not BW deployment XML."
@@ -2082,7 +2236,7 @@ deploy_offline_from_output() {
       lookup_name="${app_dir%/}"; lookup_name="${lookup_name##*/}"
     fi
     local __rc=0
-    platform_upload_and_deploy "$latest_ear" "$latest_values" "$app_dir" "$lookup_name" || __rc=$?
+    platform_upload_and_deploy "$latest_ear" "$latest_values" "$lookup_name" || __rc=$?
     case "$__rc" in
       0)
         if [[ "$NO_START" == "true" ]]; then
@@ -2122,6 +2276,7 @@ NO_START="false"
 FORCE_UPGRADE="false"
 ANALYZE_ONLY="false"
 NO_ANALYZE="false"
+NO_BEST_PRACTICES="false"
 GENERATE_REPORT="false"
 CURL_OPTS=()   # populated with -k only when --insecure-tls is passed
 REPORT_FILE=""
@@ -2133,6 +2288,14 @@ CUSTOM_MODE="false"
 CUSTOM_APP_NAME=""
 CUSTOM_EAR_FILE=""
 CUSTOM_XML_FILE=""
+
+# Optional verb as first argument (migrate|export|analyze|deploy)
+VERB=""
+if [[ $# -gt 0 ]]; then
+  case "$1" in
+    migrate|export|analyze|deploy) VERB="$1"; shift ;;
+  esac
+fi
 
 # Collect positional args safely (domain/app) and parse flags flexibly
 POSITIONAL=()
@@ -2152,6 +2315,7 @@ while [[ $# -gt 0 ]]; do
     --xml) CUSTOM_XML_FILE="${2:-}"; CUSTOM_MODE="true"; shift 2 ;;
     --analyze-only) ANALYZE_ONLY="true"; shift ;;
     --no-analyze) NO_ANALYZE="true"; shift ;;
+    --no-best-practices) NO_BEST_PRACTICES="true"; shift ;;
     --allow-blockers) ALLOW_BLOCKERS="true"; shift ;;
     --insecure-tls) CURL_OPTS+=("-k"); shift ;;
     --report)
@@ -2182,6 +2346,14 @@ done
 if (( ${#POSITIONAL[@]} >= 1 )); then DOMAIN="${POSITIONAL[0]}"; fi
 if (( ${#POSITIONAL[@]} >= 2 )); then APP_NAME="${POSITIONAL[1]}"; fi
 if (( ${#POSITIONAL[@]} > 2 )); then err "Too many positional arguments: ${POSITIONAL[*]}"; usage; exit 1; fi
+
+# Translate verb to internal flags (old flags still work for backward compatibility)
+case "$VERB" in
+  export)  OFFLINE_EXPORT="true" ;;
+  analyze) ANALYZE_ONLY="true" ;;
+  deploy)  [[ "$CUSTOM_MODE" == "false" ]] && DEPLOY_OFFLINE="true" ;;
+  migrate) ;;
+esac
 
 
 
@@ -2385,6 +2557,7 @@ if [[ "$BATCH_MODE" == "true" ]]; then
   log "Output dir ........: $OUTPUT_DIR"
 
   TMP_DIR="$(mktemp -d "${WORK_DIR}/.${DOMAIN}_batch.XXXX")"
+  # shellcheck disable=SC2317  # called via trap EXIT
   cleanup() { rm -rf "$TMP_DIR"; }
   trap cleanup EXIT
 
@@ -2458,12 +2631,8 @@ log "App output dir ....: $OUTPUT_APP_DIR"
   EXPORT_EAR_CMD="$(ADMIN_PASS="$ADMIN_PASS" envsubst <<<"$APPMANAGE_EXPORT_EAR_TMPL")"
   log "Exporting EAR with AppManage..."
   log "CMD: ${EXPORT_EAR_CMD//"$ADMIN_PASS"/'***'}"
-  if [[ "$DEBUG" == "true" ]]; then
-    eval "$EXPORT_EAR_CMD"
-  else
-    eval "$EXPORT_EAR_CMD" >/dev/null 2>&1
-  fi
-  [[ -f "$EAR_PATH" ]] || die "EAR export failed; file not found: $EAR_PATH"
+  _run_appmanage_cmd "$EXPORT_EAR_CMD"
+  [[ -f "$EAR_PATH" ]] || die "EAR export failed${AM_LAST_ERROR:+: $AM_LAST_ERROR}"
 
   # Move artifacts to per-app output folder
     cp -f "$EAR_PATH" "$FINAL_EAR"
@@ -2569,7 +2738,7 @@ if [[ -n "$PLATFORM_ENV" ]]; then
 
   if [[ "$NO_START" == "true" ]]; then
     set_replica_count_zero "$OUT_VALUES"
-    if platform_upload_and_deploy "$FINAL_EAR" "$OUT_VALUES" "$OUTPUT_APP_DIR" "$APP_NAME"; then
+    if platform_upload_and_deploy "$FINAL_EAR" "$OUT_VALUES" "$APP_NAME"; then
       log "Mode no-start: deployed with replicaCount=0 (app not started)."
       summary "DEPLOYED (no-start): $APP_NAME"
       exit 0
@@ -2582,7 +2751,7 @@ if [[ -n "$PLATFORM_ENV" ]]; then
   fi
 
   # full platform flow
-  if platform_upload_and_deploy "$FINAL_EAR" "$OUT_VALUES" "$OUTPUT_APP_DIR" "$APP_NAME"; then
+  if platform_upload_and_deploy "$FINAL_EAR" "$OUT_VALUES" "$APP_NAME"; then
     log "Platform deployment done."
     summary "DEPLOYED: $APP_NAME"
     exit 0
