@@ -921,6 +921,37 @@ _analysis_scan_process() {
       "TIBCO Rendezvous activities detected. Test carefully, as RV in a cloud environment may require TIBCO TRNS software or additional configuration. Re-evaluate the design to determine if it can be replaced with another TIBCO Messaging alternative such as TIBCO EMS or TIBCO Cloud Messaging, if needed."
   fi
 
+  # --- NOTE: Java Code activities (generic review) ---
+  if echo "$types" | grep -q 'com\.tibco\.plugin\.java\.'; then
+    _analysis_add_note "$fname" "Java Code — Generic Review" \
+      "Java activities (Java Code / Java Method) detected. Embedded custom Java runs inside the engine and is not analyzed in depth by this tool. Review it for container portability: avoid absolute or local file paths (storage is ephemeral and not shared across replicas), OS command execution, and host/IP assumptions; watch for single-instance static state; and ensure any external JAR dependencies are present in the base image. Confirm the code compiles and runs under the Java runtime of the target TIBCO BusinessWorks 5 (Containers) base image (Java 17 for BW 5.16.1)."
+
+    # --- WARNING: embedded Java using APIs removed/disabled in Java 17 ---
+    # Heuristic static scan of the embedded source; no compiler required. Each
+    # entry is a "regex|label" pair; labels are collected into one warning.
+    local -a _java_removed=(
+      'javax\.xml\.bind|JAXB (javax.xml.bind) — removed in Java 11'
+      'javax\.xml\.ws|JAX-WS (javax.xml.ws) — removed in Java 11'
+      'javax\.jws|JWS annotations (javax.jws) — removed in Java 11'
+      'javax\.activation|JavaBeans Activation (javax.activation) — removed in Java 11'
+      'javax\.annotation\.|Common Annotations (javax.annotation) — removed in Java 11'
+      'org\.omg\.CORBA|CORBA (org.omg.CORBA) — removed in Java 11'
+      'javax\.rmi\.CORBA|CORBA (javax.rmi.CORBA) — removed in Java 11'
+      'jdk\.nashorn|Nashorn JavaScript engine — removed in Java 15'
+      'java\.rmi\.activation|RMI Activation (java.rmi.activation) — removed in Java 17'
+      'sun\.misc\.|Sun internal API (sun.misc.*) — encapsulated/removed'
+    )
+    local java_issues="" _entry _pat _lbl
+    for _entry in "${_java_removed[@]}"; do
+      _pat="${_entry%%|*}"; _lbl="${_entry#*|}"
+      grep -qE "$_pat" "$pfile" 2>/dev/null && java_issues+="${java_issues:+; }$_lbl"
+    done
+    if [[ -n "$java_issues" ]]; then
+      _analysis_add_warning "$fname" "Java Code — APIs Removed in Java 17" \
+        "Embedded Java references APIs that are removed or disabled in Java 17, the runtime used by the TIBCO BusinessWorks 5 (Containers) base image for BW 5.16.1: $java_issues. This code will fail to compile or run until it is migrated. Either add the corresponding standalone libraries to the base image (e.g., the JAXB/JAX-WS reference implementations) or refactor the code to use supported APIs."
+    fi
+  fi
+
   # --- NOTE: Fault Tolerant Group ---
   if grep -qiE 'FaultTolerant|ftgroup|FTGroup' "$pfile" 2>/dev/null; then
     _analysis_add_note "$fname" "Fault Tolerant Group — Cloud-Native HA" \
@@ -1139,9 +1170,9 @@ _analysis_scan_aar() {
     [[ "$sw_name" == "$sup" ]] && return 0
   done
 
-  # Unknown adapter — report for investigation
-  _analysis_add_blocker "$fname" "Not Yet Available: $sw_name" \
-    "Adapter '$sw_name' availability in TIBCO BusinessWorks 5 (Containers) could not be verified. TIBCO is continuously expanding the platform's capabilities — please contact your TIBCO representative or check for availability in a future release."
+  # Unknown adapter — treat as a custom (Adapter SDK) adapter
+  _analysis_add_note "$fname" "Custom Adapter — Ensure It Is Included" \
+    "Adapter '$sw_name' is not a recognized TIBCO adapter and is treated as a custom (Adapter SDK) adapter. Custom adapters are not part of the TIBCO BusinessWorks 5 (Containers) base image — ensure the adapter's runtime libraries and configuration are packaged into the container image (e.g., a custom base image) so the application can start and run."
 }
 
 # Scan a single .serviceagent file for HTTP Basic Auth (server-mode).

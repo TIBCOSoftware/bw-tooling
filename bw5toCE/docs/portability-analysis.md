@@ -191,6 +191,42 @@ Non-lifecycle commands such as `GetActivityStats` are not flagged.
 
 ---
 
+#### Java Code — APIs Removed in Java 17 (Warning)
+**Trigger:** A Java activity whose embedded source references packages removed or disabled in Java 17 (the base-image runtime for BW 5.16.1): `javax.xml.bind` (JAXB), `javax.xml.ws`/`javax.jws` (JAX-WS), `javax.activation`, `javax.annotation`, `org.omg.CORBA`/`javax.rmi.CORBA` (CORBA), `jdk.nashorn` (Nashorn), `java.rmi.activation`, or `sun.misc.*`.
+
+This is a **heuristic static scan** of the embedded source — no compiler is invoked — so it flags known breakers but does not guarantee the code otherwise compiles.
+
+**Why it warns:** These packages were removed from the JDK (Java EE modules and CORBA in Java 11, Nashorn in Java 15, RMI Activation in Java 17) or are internal and encapsulated. Code using them fails to compile or run on Java 17.
+
+**Remediation:** Add the corresponding standalone libraries to the base image (e.g., the JAXB/JAX-WS reference implementations) or refactor the code to supported APIs.
+
+---
+
+#### Java Code — Generic Review
+**Trigger:** Any `com.tibco.plugin.java.*` activity type (Java Code, Java Method, Java Event Source).
+
+**Why it's noted:** Embedded custom Java runs inside the engine and is not analyzed in depth by this tool. It may carry container-portability risks that only manual review can surface.
+
+**Remediation:**
+- Avoid absolute or local file paths — storage is ephemeral and not shared across replicas
+- Avoid OS command execution and host/IP assumptions
+- Watch for single-instance static/in-memory state that assumes one running engine
+- Ensure any external JAR dependencies are present in the base image
+- Confirm the code compiles and runs under the target base image Java runtime (Java 17 for BW 5.16.1)
+
+---
+
+#### Custom Adapter — Ensure It Is Included
+**Trigger:** An adapter (`.aar`) whose `componentSoftwareName` is not a recognized TIBCO adapter (neither in the supported nor the known-unsupported list). It is treated as a custom (Adapter SDK) adapter.
+
+**Why it's noted:** Custom adapters are not part of the TIBCO BusinessWorks 5 (Containers) base image, so the application will not start unless the adapter is provided at runtime.
+
+**Remediation:**
+- Package the adapter's runtime libraries and configuration into the container image (e.g., a custom base image)
+- Verify the adapter is compatible with the Containers runtime and its Java 17 base
+
+---
+
 #### Fault Tolerant Group — Cloud-Native HA
 **Trigger:** `FaultTolerant`, `ftgroup`, or `FTGroup` references in process XML.
 

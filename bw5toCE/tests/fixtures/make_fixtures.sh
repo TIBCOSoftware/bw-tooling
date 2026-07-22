@@ -357,6 +357,57 @@ make_ear "rendezvous" "$PROC_DIR"
 rm -f "$PROC_DIR"/*.process
 
 # ------------------------------------------------------------------ #
+# Fixture: java_activity.ear — Java Code activity (NOTE, generic review)
+# Java source is embedded in <config><fullsource> as in real BW5 processes.
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>JavaCode</pd:name>
+    <pd:type>com.tibco.plugin.java.JavaActivity</pd:type>
+    <config>
+      <fileName>MyJavaCode</fileName>
+      <packageName>Main</packageName>
+      <fullsource>package Main;
+import java.util.*;
+public class MyJavaCode {
+  public void invoke() { }
+}</fullsource>
+    </config>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+make_ear "java_activity" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process
+
+# ------------------------------------------------------------------ #
+# Fixture: java_removed_api.ear — Java Code using a Java-17-removed API (WARNING)
+# ------------------------------------------------------------------ #
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>JavaCode</pd:name>
+    <pd:type>com.tibco.plugin.java.JavaActivity</pd:type>
+    <config>
+      <fileName>LegacyJavaCode</fileName>
+      <packageName>Main</packageName>
+      <fullsource>package Main;
+import javax.xml.bind.JAXBContext;
+public class LegacyJavaCode {
+  public void invoke() throws Exception { JAXBContext.newInstance(); }
+}</fullsource>
+    </config>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+make_ear "java_removed_api" "$PROC_DIR"
+rm -f "$PROC_DIR"/*.process
+
+# ------------------------------------------------------------------ #
 # Fixtures: known-unsupported plugins (BLOCKER with label)
 # Activity type strings taken verbatim from PluginActivityMap (Go extractor).
 # Note: JD Edwards, PeopleSoft, OSIsoft PI, Tuxedo, and EDI are adapter-SDK
@@ -451,6 +502,26 @@ cat > "$PROC_DIR/main.process" <<'EOF'
 </pd:ProcessDefinition>
 EOF
 make_ear "unsupported_adapters" "$PROC_DIR" "" "" "$AAR_DIR"
+rm -f "$PROC_DIR"/*.process
+rm -rf "$AAR_DIR"
+
+# ------------------------------------------------------------------ #
+# Fixture: custom_adapter.ear — unrecognized adapter (NOTE, custom adapter)
+# componentSoftwareName is not a known TIBCO adapter.
+# ------------------------------------------------------------------ #
+AAR_DIR="$(mktemp -d)"
+make_aar "acmecustom" "$AAR_DIR/AcmeCustomAdapterConfiguration.aar"
+cat > "$PROC_DIR/main.process" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">
+  <pd:name>Main</pd:name>
+  <pd:activity>
+    <pd:name>AdapterCall</pd:name>
+    <pd:type>com.tibco.plugin.ae.AERPCRequestReplyActivity</pd:type>
+  </pd:activity>
+</pd:ProcessDefinition>
+EOF
+make_ear "custom_adapter" "$PROC_DIR" "" "" "$AAR_DIR"
 rm -f "$PROC_DIR"/*.process
 rm -rf "$AAR_DIR"
 

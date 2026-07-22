@@ -157,6 +157,24 @@ run_full_flow() {
   assert_contains "$output" "REVIEW"
 }
 
+@test "--analyze-only: java_activity.ear exits 0 and shows REVIEW" {
+  run_analyze_only "java_activity"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "REVIEW"
+}
+
+@test "--analyze-only: java_removed_api.ear exits 0 and shows CAUTION" {
+  run_analyze_only "java_removed_api"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "CAUTION"
+}
+
+@test "--analyze-only: custom_adapter.ear exits 0 and shows REVIEW" {
+  run_analyze_only "custom_adapter"
+  [ "$status" -eq 0 ]
+  assert_contains "$output" "REVIEW"
+}
+
 @test "--analyze-only: engine_command_lifecycle.ear exits 0 and shows CAUTION" {
   run_analyze_only "engine_command_lifecycle"
   [ "$status" -eq 0 ]

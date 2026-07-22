@@ -98,6 +98,16 @@ setup() {
   [ "${#ANALYSIS_BLOCKERS[@]}" -eq 4 ]
 }
 
+# Adapter (AAR) — unrecognized name is treated as a custom adapter (NOTE, no blocker)
+@test "custom_adapter.ear: unknown adapter is a NOTE, not a blocker" {
+  ear="$(require_fixture "custom_adapter")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+  [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
+  local all_n="${ANALYSIS_NOTES[*]}"
+  assert_contains "$all_n" "Custom Adapter"
+}
+
 @test "unsupported_adapters.ear: blocker labels use friendly adapter names" {
   ear="$(require_fixture "unsupported_adapters")"
   analyze_ear_for_portability "$ear" "$TEST_TMP"
@@ -203,6 +213,30 @@ setup() {
   analyze_ear_for_portability "$ear" "$TEST_TMP"
   [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_NOTES[0]}" "Rendezvous"
+}
+
+@test "java_activity.ear: Java activities are NOTE" {
+  ear="$(require_fixture "java_activity")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
+  local all_n="${ANALYSIS_NOTES[*]}"
+  assert_contains "$all_n" "Java Code"
+}
+
+@test "java_activity.ear: clean Java code raises no Java-17 warning" {
+  ear="$(require_fixture "java_activity")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  local all_w="${ANALYSIS_WARNINGS[*]:-}"
+  [[ "$all_w" != *"Removed in Java 17"* ]]
+}
+
+@test "java_removed_api.ear: Java-17-removed API is WARNING" {
+  ear="$(require_fixture "java_removed_api")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
+  local all_w="${ANALYSIS_WARNINGS[*]}"
+  assert_contains "$all_w" "Removed in Java 17"
+  assert_contains "$all_w" "JAXB"
 }
 
 # ─── WARNINGS (continued) ────────────────────────────────────────────────────
