@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Require Bash >= 4.2 (script relies on printf '%()T', arrays and ${var,,}/${var^^}).
+# BASH_VERSINFO is available since Bash 2.0, so this guard is safe on older shells.
+if [ -z "${BASH_VERSINFO:-}" ] || [ "${BASH_VERSINFO[0]}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 2 ]; }; then
+  printf 'ERROR: This script requires Bash 4.2 or newer (found: %s).\n' "${BASH_VERSION:-unknown}" >&2
+  exit 1
+fi
+
 # ==============================
 # Configuration (edit as needed)
 # ==============================
@@ -51,9 +58,12 @@ check_prereqs() {
     else
       statuses+=("MISSING"); paths+=("not found in PATH")
     fi
+    # Bash 4.2 lacks negative array subscripts; index the last element explicitly.
+    local last_status="${statuses[${#statuses[@]}-1]}"
+    local last_path="${paths[${#paths[@]}-1]}"
     (( ${#b}           > tool_w   )) && tool_w=${#b}
-    (( ${#statuses[-1]} > status_w )) && status_w=${#statuses[-1]}
-    (( ${#paths[-1]}    > path_w   )) && path_w=${#paths[-1]}
+    (( ${#last_status} > status_w )) && status_w=${#last_status}
+    (( ${#last_path}   > path_w   )) && path_w=${#last_path}
   done
 
   local border fmt
@@ -1376,12 +1386,16 @@ HTMLEOF
   # Helper to append a table section
   local entry file item desc
   _append_section() {
-    local -n _arr="$1"
+    # Bash 4.2 has no namerefs (local -n); reference the array by name indirectly.
+    local _arr_name="$1"
     local _row_class="$2" _hdr_class="$3" _title="$4"
-    [[ ${#_arr[@]} -eq 0 ]] && return 0
+    local _arr_count
+    eval "_arr_count=\${#${_arr_name}[@]}"
+    [[ "$_arr_count" -eq 0 ]] && return 0
+    local _arr_ref="${_arr_name}[@]"
     printf '<section><h2 class="%s">%s</h2>\n' "$_hdr_class" "$_title" >> "$report_file"
     printf '<table><tr><th>Issue</th><th>File</th><th>Details &amp; Recommendation</th></tr>\n' >> "$report_file"
-    for entry in "${_arr[@]}"; do
+    for entry in "${!_arr_ref}"; do
       IFS=$'\t' read -r file item desc <<< "$entry"
       printf '<tr class="%s"><td>%s</td><td>%s</td><td>%s</td></tr>\n' \
         "$_row_class" "$(_html_esc "$item")" "$(_html_esc "$file")" "$(_html_esc "$desc")" >> "$report_file"
