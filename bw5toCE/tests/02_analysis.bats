@@ -108,6 +108,17 @@ setup() {
   assert_contains "$all_n" "Custom Adapter"
 }
 
+# Adapter AAR with an absolute-path entry makes unzip exit 1 (warning); the
+# analyzer must still detect the adapter instead of bailing on the warning.
+@test "custom_adapter_abspath.ear: adapter detected despite unzip warning" {
+  ear="$(require_fixture "custom_adapter_abspath")"
+  analyze_ear_for_portability "$ear" "$TEST_TMP"
+  [ "${#ANALYSIS_BLOCKERS[@]}" -eq 0 ]
+  [ "${#ANALYSIS_NOTES[@]}" -ge 1 ]
+  local all_n="${ANALYSIS_NOTES[*]}"
+  assert_contains "$all_n" "Custom Adapter"
+}
+
 @test "unsupported_adapters.ear: blocker labels use friendly adapter names" {
   ear="$(require_fixture "unsupported_adapters")"
   analyze_ear_for_portability "$ear" "$TEST_TMP"

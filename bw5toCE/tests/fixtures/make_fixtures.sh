@@ -526,6 +526,52 @@ rm -f "$PROC_DIR"/*.process
 rm -rf "$AAR_DIR"
 
 # ------------------------------------------------------------------ #
+# Fixture: custom_adapter_abspath.ear — custom adapter whose AAR stores an
+# absolute-path entry (leading '/'), as real TIBCO adapter AARs do. unzip
+# then exits 1 (warning); this fixture guards against the analyzer bailing
+# on that warning and missing the adapter. Requires python3 to build the
+# absolute-path zip entry (zip strips leading slashes).
+# ------------------------------------------------------------------ #
+if command -v python3 >/dev/null 2>&1; then
+  python3 - "$FIXTURES_DIR/custom_adapter_abspath.ear" <<'PY'
+import sys, io, zipfile
+def aar():
+    b = io.BytesIO(); z = zipfile.ZipFile(b, 'w', zipfile.ZIP_DEFLATED)
+    z.writestr('TIBCO.xml',
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<DeploymentDescriptors xmlns="http://www.tibco.com/xmlns/dd">\n'
+        '  <StartAsOneOf><ComponentSoftwareReference>\n'
+        '    <componentSoftwareName>acmeabspath</componentSoftwareName>\n'
+        '    <keyword>Adapter</keyword>\n'
+        '  </ComponentSoftwareReference></StartAsOneOf>\n'
+        '</DeploymentDescriptors>\n')
+    z.writestr('/SharedResources/AdapterConfigurations/Acme/Acme.adapter', '<adapter/>\n')
+    z.close(); return b.getvalue()
+def par():
+    b = io.BytesIO(); z = zipfile.ZipFile(b, 'w', zipfile.ZIP_DEFLATED)
+    z.writestr('main.process',
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<pd:ProcessDefinition xmlns:pd="http://xmlns.tibco.com/bw/process/2003">\n'
+        '  <pd:name>Main</pd:name>\n'
+        '  <pd:activity><pd:name>AdapterCall</pd:name>'
+        '<pd:type>com.tibco.plugin.ae.AERPCRequestReplyActivity</pd:type></pd:activity>\n'
+        '</pd:ProcessDefinition>\n')
+    z.close(); return b.getvalue()
+e = zipfile.ZipFile(sys.argv[1], 'w', zipfile.ZIP_DEFLATED)
+e.writestr('TIBCO.xml',
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<repository xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n'
+    '  <globalvariables/>\n</repository>\n')
+e.writestr('custom_adapter_abspath.par', par())
+e.writestr('AcmeAdapterConfiguration.aar', aar())
+e.close()
+PY
+  echo "Created: $FIXTURES_DIR/custom_adapter_abspath.ear"
+else
+  echo "WARN: python3 not found; skipping custom_adapter_abspath.ear fixture" >&2
+fi
+
+# ------------------------------------------------------------------ #
 # Fixture: engine_command_lifecycle.ear — EngineCommand with flagged
 # lifecycle operations (WARNING): Shutdown + SuspendProcessStarter
 # ------------------------------------------------------------------ #

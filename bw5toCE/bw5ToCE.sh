@@ -1144,7 +1144,7 @@ _analysis_scan_aar() {
   local aar_dir
   aar_dir="$work_dir/$(basename "$aar_file").analysis.d"
   mkdir -p "$aar_dir"
-  unzip -qo "$aar_file" -d "$aar_dir" 2>/dev/null || return 0
+  _safe_unzip "$aar_file" "$aar_dir" || return 0
 
   local tibco_xml="$aar_dir/TIBCO.xml"
   [[ -f "$tibco_xml" ]] || return 0
@@ -1186,6 +1186,16 @@ _analysis_scan_service_agent() {
   fi
 }
 
+# Extract a zip, tolerating unzip's "warning" exit status 1 (e.g. absolute
+# path specs stripped, which is common in TIBCO adapter AARs). Returns non-zero
+# only on real extraction errors (unzip exit >= 2).
+_safe_unzip() {
+  local _rc=0
+  unzip -qo "$1" -d "$2" >/dev/null 2>&1 || _rc=$?
+  (( _rc >= 2 )) && return 1
+  return 0
+}
+
 # Main analysis driver: extracts EAR, scans all processes and shared resources.
 # Populates ANALYSIS_BLOCKERS, ANALYSIS_WARNINGS, ANALYSIS_NOTES.
 analyze_ear_for_portability() {
@@ -1204,8 +1214,9 @@ analyze_ear_for_portability() {
 
   local ear_dir="$work_dir/analysis_ear"
   mkdir -p "$ear_dir"
-  local _unzip_err
-  if ! _unzip_err=$(unzip -qo "$ear_file" -d "$ear_dir" 2>&1); then
+  local _unzip_err _unzip_rc=0
+  _unzip_err=$(unzip -qo "$ear_file" -d "$ear_dir" 2>&1) || _unzip_rc=$?
+  if (( _unzip_rc >= 2 )); then
     err "Cannot extract EAR for analysis: $ear_file"
     log "unzip: $(normalize_whitespace "$_unzip_err")"
     return 1
@@ -1220,7 +1231,7 @@ analyze_ear_for_portability() {
   while IFS= read -r -d '' par_file; do
     par_dir="${par_file}.analysis.d"
     mkdir -p "$par_dir"
-    unzip -qo "$par_file" -d "$par_dir" 2>/dev/null || continue
+    _safe_unzip "$par_file" "$par_dir" || continue
     log "Analysis: scanning $(basename "$par_file")"
     while IFS= read -r -d '' process_file; do
       _analysis_scan_process "$process_file" "$has_db_checkpoint"
@@ -1244,7 +1255,7 @@ analyze_ear_for_portability() {
   while IFS= read -r -d '' sar_file; do
     sar_dir="${sar_file}.analysis.d"
     mkdir -p "$sar_dir"
-    unzip -qo "$sar_file" -d "$sar_dir" 2>/dev/null || continue
+    _safe_unzip "$sar_file" "$sar_dir" || continue
     log "Analysis: scanning shared resources in $(basename "$sar_file")"
     _analysis_scan_shared_resources "$sar_dir"
     _analysis_scan_connections "$sar_dir"
