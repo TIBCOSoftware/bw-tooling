@@ -1053,22 +1053,22 @@ _analysis_scan_shared_resources() {
     resource_type=$(grep -oE '<resourceType>[^<]+</resourceType>' "$rfile" 2>/dev/null \
       | sed 's/<resourceType>//g; s/<\/resourceType>//g' | head -1 || true)
 
-    # Shared Variable or Module Shared Variable with multi-engine enabled
+    # Shared Variable or Module Shared Variable that is multi-engine and/or
+    # persistent. Both require a shared, durable store; in containers file-based
+    # storage is neither shared nor durable across replicas. Whether a database
+    # backs the variable is decided at deployment time and cannot be inferred from
+    # the EAR, so we always warn to have it backed by a database.
     if [[ "$resource_type" == "ae.shared.sharedVariable" || "$resource_type" == "ae.shared.moduleSharedVariable" ]]; then
-      local multi_engine
+      local multi_engine persistent
       multi_engine=$(grep -oE '<multi-engine>[^<]+</multi-engine>' "$rfile" 2>/dev/null \
         | sed 's/<multi-engine>//g; s/<\/multi-engine>//g' | head -1 || true)
-      if [[ "$multi_engine" == "true" ]]; then
-        local persistence
-        persistence=$(grep -oE '<persistent>[^<]+</persistent>' "$rfile" 2>/dev/null \
-          | sed 's/<persistent>//g; s/<\/persistent>//g' | head -1 || true)
-        if [[ "$persistence" == "true" || "$persistence" == "database" || "$persistence" == "jdbc" ]]; then
-          _analysis_add_warning "$fname" "Shared Variable — Multi-Engine with Persistence" \
-            "Shared Variable with multi-engine enabled and persistence active detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod with no shared in-memory state. File-based persistence requires a PersistentVolumeClaim (PVC) shared across replicas; for true cross-instance sharing, switching to JDBC-based persistence is recommended."
-        else
-          _analysis_add_warning "$fname" "Shared Variable — Multi-Engine Enabled" \
-            "Shared Variable with multi-engine enabled detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod with no shared in-memory state. Cross-instance sharing will not work out of the box — review the design and consider JDBC-based persistence or an external state store."
-        fi
+      persistent=$(grep -oE '<persistent>[^<]+</persistent>' "$rfile" 2>/dev/null \
+        | sed 's/<persistent>//g; s/<\/persistent>//g' | head -1 || true)
+      if [[ "$multi_engine" == "true" || "$persistent" == "true" ]]; then
+        local _sv_label="Shared Variable"
+        [[ "$resource_type" == "ae.shared.moduleSharedVariable" ]] && _sv_label="Module Shared Variable"
+        _analysis_add_warning "$fname" "$_sv_label — Must Be Backed by a Database" \
+          "$_sv_label with multi-engine and/or persistence enabled detected. In TIBCO BusinessWorks 5 (Containers), each replica is an independent pod with no shared in-memory state, and file-based storage is neither shared nor durable across replicas. Ensure this variable is backed by a database (JDBC) at deployment so its state stays consistent and persistent across instances."
       fi
     fi
     # Notify Configuration without localOnly

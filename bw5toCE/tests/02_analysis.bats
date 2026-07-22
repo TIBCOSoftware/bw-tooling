@@ -318,30 +318,50 @@ setup() {
 
 # ─── _analysis_scan_shared_resources ─────────────────────────────────────────
 
-@test "_analysis_scan_shared_resources: flags non-DB Module Shared Variable" {
+@test "_analysis_scan_shared_resources: flags multi-engine Module Shared Variable (must be DB-backed)" {
   local res_dir="$TEST_TMP/resources"
   mkdir -p "$res_dir"
   cat > "$res_dir/MyVar.moduleSharedVariable" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <sharedVariable>
   <resourceType>ae.shared.moduleSharedVariable</resourceType>
-  <persistence>file</persistence>
+  <multi-engine>true</multi-engine>
+  <persistent>false</persistent>
 </sharedVariable>
 XML
   ANALYSIS_WARNINGS=()
   _analysis_scan_shared_resources "$res_dir"
   [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
   assert_contains "${ANALYSIS_WARNINGS[0]}" "Module Shared Var"
+  assert_contains "${ANALYSIS_WARNINGS[0]}" "Database"
 }
 
-@test "_analysis_scan_shared_resources: no warning for DB-persisted Module Shared Variable" {
+@test "_analysis_scan_shared_resources: flags persistent Module Shared Variable (must be DB-backed)" {
   local res_dir="$TEST_TMP/resources"
   mkdir -p "$res_dir"
   cat > "$res_dir/MyVar.moduleSharedVariable" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <sharedVariable>
   <resourceType>ae.shared.moduleSharedVariable</resourceType>
-  <persistence>database</persistence>
+  <multi-engine>false</multi-engine>
+  <persistent>true</persistent>
+</sharedVariable>
+XML
+  ANALYSIS_WARNINGS=()
+  _analysis_scan_shared_resources "$res_dir"
+  [ "${#ANALYSIS_WARNINGS[@]}" -ge 1 ]
+  assert_contains "${ANALYSIS_WARNINGS[0]}" "Database"
+}
+
+@test "_analysis_scan_shared_resources: no warning for non-persistent single-engine Module Shared Variable" {
+  local res_dir="$TEST_TMP/resources"
+  mkdir -p "$res_dir"
+  cat > "$res_dir/MyVar.moduleSharedVariable" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<sharedVariable>
+  <resourceType>ae.shared.moduleSharedVariable</resourceType>
+  <multi-engine>false</multi-engine>
+  <persistent>false</persistent>
 </sharedVariable>
 XML
   ANALYSIS_WARNINGS=()

@@ -276,6 +276,9 @@ rm -f "$PROC_DIR"/*.process
 
 # ------------------------------------------------------------------ #
 # Fixture: wait_notify.ear — Wait/Notify pattern (WARNING)
+# Wait/Notify activities always rely on a Notify Configuration shared
+# resource. The warning fires only when localOnly is not set to true,
+# so the shared resource below deliberately omits localOnly=true.
 # ------------------------------------------------------------------ #
 cat > "$PROC_DIR/main.process" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -291,8 +294,17 @@ cat > "$PROC_DIR/main.process" <<'EOF'
   </pd:activity>
 </pd:ProcessDefinition>
 EOF
-make_ear "wait_notify" "$PROC_DIR"
+WN_SAR_DIR="$(mktemp -d)"
+cat > "$WN_SAR_DIR/MyNotify.sharednotify" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<notifyConfig>
+  <resourceType>ae.shared.notifySharedConfig</resourceType>
+  <localOnly>false</localOnly>
+</notifyConfig>
+EOF
+make_ear "wait_notify" "$PROC_DIR" "$WN_SAR_DIR"
 rm -f "$PROC_DIR"/*.process
+rm -rf "$WN_SAR_DIR"
 
 # ------------------------------------------------------------------ #
 # Fixture: file_io.ear — file activities (NOTE)

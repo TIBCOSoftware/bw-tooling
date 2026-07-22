@@ -124,7 +124,7 @@ setup() {
 # ─── _analysis_is_supported_type ──────────────────────────────────────────────
 
 @test "_analysis_is_supported_type: core bw prefix is supported" {
-  _analysis_is_supported_type "com.tibco.bw.core.OnStartupEventSource"
+  _analysis_is_supported_type "com.tibco.pe.core.OnStartupEventSource"
 }
 
 @test "_analysis_is_supported_type: http is supported" {

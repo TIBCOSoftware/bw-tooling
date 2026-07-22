@@ -155,12 +155,12 @@ Non-lifecycle commands such as `GetActivityStats` are not flagged.
 
 ---
 
-#### Module Shared Variable — Non-DB Persistence
-**Trigger:** A `.moduleSharedVariable` shared resource file has `persistence` not set to `database` or `jdbc`.
+#### Module Shared Variable — Must Be Backed by a Database
+**Trigger:** A `.sharedVariable` / `.moduleSharedVariable` shared resource file has `multi-engine` set to `true` **and/or** `persistent` set to `true`. Variables that are neither multi-engine nor persistent are not flagged.
 
-**Why it warns:** Module Shared Variable with non-database persistence detected. File-based storage requires a PersistentVolumeClaim (PVC) and volume mount. For cross-instance sharing, switching to JDBC-based persistence is recommended to ensure consistency across replicas.
+**Why it warns:** A multi-engine and/or persistent Shared Variable requires a shared, durable store. In containers each replica is an independent pod with no shared in-memory state, and file-based storage is neither shared nor durable across replicas. Whether the variable is backed by a database is decided at deployment time and cannot be inferred from the EAR, so the warning is always raised for review.
 
-**Remediation:** Configure JDBC persistence in the shared variable resource definition, or add a PVC and volume mount if file-based storage must be retained.
+**Remediation:** Ensure the variable is backed by a database (JDBC) at deployment so its state stays consistent and persistent across instances; if single-instance scope is acceptable, set `replicaCount: 1`.
 
 ---
 
