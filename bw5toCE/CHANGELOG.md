@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased
+
+### Compatibility
+
+- **Bash 4.2 support** — the script no longer requires Bash 4.3+. Negative
+  array subscripts and namerefs (`local -n`) were replaced with 4.2-compatible
+  equivalents, and a startup guard now fails fast with a clear message on
+  anything older than 4.2 (unblocks legacy hosts such as RHEL 7).
+
+### New portability checks
+
+- **Java Code — generic review (NOTE)** — any `com.tibco.plugin.java.*` activity
+  raises a note to review embedded custom Java for container portability.
+- **Java Code — APIs removed in Java 17 (WARNING)** — heuristic static scan of the
+  embedded source for packages removed or disabled in Java 17 (JAXB, JAX-WS,
+  `javax.activation`/`javax.annotation`, CORBA, Nashorn, RMI Activation,
+  `sun.misc.*`). No compiler or extra dependency required.
+- **Custom Adapter (NOTE)** — an adapter whose `componentSoftwareName` is not a
+  recognized TIBCO adapter is now reported as a custom-adapter note ("ensure it
+  is included in the image") instead of a blocker.
+
+### Analysis fixes
+
+- **Shared Variable / Module Shared Variable** — warn when the variable is
+  multi-engine and/or persistent, indicating it must be backed by a database
+  (the DB backing is decided at deployment and cannot be inferred from the EAR,
+  so the warning is always raised for review).
+- **Custom adapter detection** — TIBCO adapter AARs store entries with absolute
+  paths, which makes `unzip` exit 1 (a warning). The analyzer treated that as a
+  failure and skipped the adapter, so real custom adapters were missed and apps
+  reported READY. Extraction now tolerates unzip's warning status (fails only on
+  real errors), for EAR, PAR, SAR and AAR archives.
+- Fixed the Wait/Notify test fixture (was missing its Notify Configuration
+  shared resource) and a typo in a supported-type unit test.
+
 ## 0.2
 
 ### New features

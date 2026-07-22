@@ -18,6 +18,7 @@ Main entry: `bw5ToCE.sh`
 
 Install and have in `PATH`:
 
+- Bash 4.2 or newer (the script checks this at startup and exits otherwise)
 - AppManage (TIBCO BW5 utility)
 - xmlstarlet
 - yq (mikefarah v4 or python yq are supported)
