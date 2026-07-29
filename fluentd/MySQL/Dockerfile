@@ -11,8 +11,8 @@ RUN apt-get install -y make
 RUN apt-get install -y libpq-dev
 RUN gem -v
 RUN ruby -v
-RUN ["gem", "install", "fluent-plugin-sql", "--no-document"]
+RUN ["gem", "install", "fluent-plugin-sql", "--no-document", "-v", "2.3.0"]
 RUN apt-get install -y default-libmysqlclient-dev
 RUN apt-get install -y libmariadb-dev
-RUN ["gem", "install", "mysql2"]
+RUN ["gem", "install", "mysql2", "-v", "0.5.4"]
 COPY config /fluentd/etc
