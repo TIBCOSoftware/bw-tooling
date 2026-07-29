@@ -10,14 +10,8 @@ import static com.tibco.bw.prometheus.monitor.util.StatCollectionConstant.EVAL_T
 import static com.tibco.bw.prometheus.monitor.util.StatCollectionConstant.EVENT_DATA_PROPERTY;
 import static com.tibco.bw.prometheus.monitor.util.StatCollectionConstant.START_TIME_PROPERTY;
 import static com.tibco.bw.prometheus.monitor.util.StatCollectionConstant.STATUS_PROPERTY;
-import io.prometheus.client.Collector;
-import io.prometheus.client.Collector.MetricFamilySamples;
-import io.prometheus.client.Collector.MetricFamilySamples.Sample;
-import io.prometheus.client.Collector.Type;
-import io.prometheus.client.CounterMetricFamily;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,15 +32,25 @@ import com.tibco.bw.runtime.event.ActivityOutputDataException;
 import com.tibco.bw.runtime.event.State;
 import com.tibco.bw.thor.management.common.ContianerInfo;
 
+import io.prometheus.client.Collector;
+import io.prometheus.client.Collector.MetricFamilySamples.Sample;
+import io.prometheus.client.Counter;
+import io.prometheus.client.Gauge;
+
 public class ActivityStatsEventCollector implements EventHandler {
-	
+
 	private final static Logger logger = LoggerFactory.getLogger(ActivityStatsEventCollector.class);
-	
 	private final ConcurrentMap<String, Map<String, Object>> statMaps = new ConcurrentHashMap<String, Map<String, Object>>();
-	private ActivityStats activityStats = new ActivityStats();
+
+	static Map<String, Map<String, Map<String, Double>>> durationStatsMap = new HashMap<String, Map<String, Map<String, Double>>>();
+
 	private ContianerInfo deploymentInfo = ContianerInfo.get();
 	private ConfigurationManager config = ConfigurationManager.getInstance();
 	
+    static final Counter activityStatsTotalCounter = Counter.build().name("activity_events_count").help("BWCE All Activity Events count by Process, Activity State").labelNames("ProcessName", "ActivityName", "StateName").register();
+    static final Gauge activityDurationCounter = Gauge.build().name("activity_duration_count").help("BWCE Activity DurationTime by Process and Activity").labelNames("ProcessName", "ActivityName").register();
+    static final Gauge activityEvaltimeCounter = Gauge.build().name("activity_evaltime_count").help("BWCE Activity EvalTime  by Process and Activity ").labelNames("ProcessName", "ActivityName").register();
+
 	static Map<String,Integer> activityStateCounterMap = new HashMap<String,Integer>();
 	static {
 		activityStateCounterMap.put(State.STARTED.name(), 0);
@@ -54,90 +58,81 @@ public class ActivityStatsEventCollector implements EventHandler {
 		activityStateCounterMap.put(State.FAULTED.name(), 0);
 		activityStateCounterMap.put(State.CANCELLED.name(), 0);
 	}
-	
-	
-	static Map<String, HashMap<String, Integer>> activityCounterMap = new HashMap<String,HashMap<String,Integer>>();
-	
+
+		
 	private static List<Sample> activitySampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
 	private static List<Sample> activityCounterSampleList = new ArrayList<Collector.MetricFamilySamples.Sample>();
-    
-    @Override
-    public void handleEvent(final Event event) {
-    	if (logger.isDebugEnabled()) {
-			logger.debug("Event Received. Event = {" + event.toString() + "}");
-		}
-		ActivityAuditEvent activityEvent = (ActivityAuditEvent) event.getProperty(EVENT_DATA_PROPERTY);
-		String pId = activityEvent.getProcessInstanceId();
-		String activityName = activityEvent.getActivityName();
-		String activityExecutionId = activityEvent.getActivityExecutionId();
-		String key = activityName + pId + activityExecutionId;
+	@Override
+	public void handleEvent(final Event event) {
+
+		if (config.isPrometheusEnabled() && config.isActivityEnabled()) {
+			if (logger.isDebugEnabled()) {
+				logger.debug("Event Received. Event = {" + event.toString() + "}");
+			}
+			
 		
+
+			if (event.getProperty(EVENT_DATA_PROPERTY) instanceof ActivityAuditEvent) {
+				ActivityAuditEvent activityEvent = (ActivityAuditEvent) event.getProperty(EVENT_DATA_PROPERTY);
+
+				
+				String pId = activityEvent.getProcessInstanceId();
+				String activityName = activityEvent.getActivityName();
+				String activityExecutionId = activityEvent.getActivityExecutionId();
+				String key = activityName + pId + activityExecutionId;
+
 		if(config.isActivityDetailedEnabled()){
 			activityCounterSampleList.add(new Sample("activity_state_count",ActivityStats.getActivityCounterKeyList(), getActivityStateCounterList(activityEvent), 1));
 		}
 		updateTotalActivityEventCounter(activityEvent.getActivityState().name());
-		updateActivityCounter(activityEvent);
-		
-		if (State.STARTED == activityEvent.getActivityState()) {
-			Map<String, Object> activityStatMap = new HashMap<String, Object>();
-			for (String proprtyName : event.getPropertyNames()) {
-				activityStatMap.put(proprtyName, event.getProperty(proprtyName));
-			}
-			if (null == statMaps.get(key)) {
-				activityStatMap.put(START_TIME_PROPERTY,(activityEvent.getActivityStartTime()));
-				try {
-					activityStatMap.put("activityInput",activityEvent.getSerializedInputData());
-				} catch (ActivityInputDataException e) {
-					logger.error("Error while accessing activity input data " + e.getMessage());
-				}
-				statMaps.put(key, activityStatMap);
-			} else {
-				activityStatMap = statMaps.remove(key);
-				activityStatMap.put(START_TIME_PROPERTY,(activityEvent.getActivityStartTime()));
-				addStatsToMetrics(activityStatMap, activityEvent);
-			}
-		} else if (State.COMPLETED == activityEvent.getActivityState()
-				|| State.FAULTED == activityEvent.getActivityState()
-				|| State.CANCELLED == activityEvent.getActivityState()) {
-
-			Map<String, Object> activityStatMap = new HashMap<String, Object>();
-			if (null == statMaps.get(key)) {
+				updateActivityCounter(activityEvent);
 				
-				activityStatMap.put(END_TIME_PROPERTY,(activityEvent.getActivityEndTime()));
-				activityStatMap.put(EVAL_TIME_PROPERTY,(activityEvent.getActivityEvalTime()));
-				activityStatMap.put(STATUS_PROPERTY, activityEvent.getActivityState().name());
-				try {
-					activityStatMap.put("activityOutput",activityEvent.getSerializedOutputData());
-				} catch (ActivityOutputDataException e) {
-					logger.error("Error while accessing activity output data " + e.getMessage());
-				}
-				statMaps.put(key, activityStatMap);
-			} else {
-				if (logger.isDebugEnabled()) {
+				if (State.STARTED == activityEvent.getActivityState()) {
+					Map<String, Object> activityStatMap = new HashMap<String, Object>();
+					for (String proprtyName : event.getPropertyNames()) {
+						activityStatMap.put(proprtyName, event.getProperty(proprtyName));
+					}
+					if (null == statMaps.get(key)) {
+						activityStatMap.put(START_TIME_PROPERTY, (activityEvent.getActivityStartTime()));
+						try {
+							activityStatMap.put("activityInput", activityEvent.getSerializedInputData());
+						} catch (ActivityInputDataException e) {
+							logger.error("Error while accessing activity input data " + e.getMessage());
+						}
+						statMaps.put(key, activityStatMap);
+					} else {
+						activityStatMap = statMaps.remove(key);
+						activityStatMap.put(START_TIME_PROPERTY, (activityEvent.getActivityStartTime()));
+						addStatsToMetrics(activityStatMap, activityEvent);
+					}
+				} else if (State.COMPLETED == activityEvent.getActivityState()
+						|| State.FAULTED == activityEvent.getActivityState()
+						|| State.CANCELLED == activityEvent.getActivityState()) {
+					Map<String, Object> activityStatMap = new HashMap<String, Object>();
+					if (null == statMaps.get(key)) {
+						activityStatMap.put(END_TIME_PROPERTY, (activityEvent.getActivityEndTime()));
+						activityStatMap.put(EVAL_TIME_PROPERTY, (activityEvent.getActivityEvalTime()));
+						activityStatMap.put(STATUS_PROPERTY, activityEvent.getActivityState().name());
+						try {
+							activityStatMap.put("activityOutput", activityEvent.getSerializedOutputData());
+						} catch (ActivityOutputDataException e) {
+							logger.error("Error while accessing activity output data " + e.getMessage());
+						}
+						statMaps.put(key, activityStatMap);
+					} else {
+						if (logger.isDebugEnabled()) {
 					logger.debug("Statistics collected for Activity {" + activityName + "} in Process Instance {" + pId + "}");
+						}
+						activityStatMap = statMaps.remove(key);
+						activityStatMap.put(STATUS_PROPERTY, activityEvent.getActivityState().name());
+						addStatsToMetrics(activityStatMap, activityEvent);
+					}
 				}
-				activityStatMap = statMaps.remove(key);
-				activityStatMap.put(STATUS_PROPERTY, activityEvent.getActivityState().name());
-				addStatsToMetrics(activityStatMap, activityEvent);
+
 			}
 		}
 	}
 	
-	private void updateActivityCounter(ActivityAuditEvent activityEvent) {
-		String key=activityEvent.getProcessName()+"#"+activityEvent.getActivityName();
-		HashMap<String, Integer> mapAct = activityCounterMap.get(key);
-		if(mapAct == null){
-			mapAct = new HashMap<String,Integer>();			
-		}
-		Integer value = mapAct.get(activityEvent.getActivityState().name());
-		if(value == null){
-			mapAct.put(activityEvent.getActivityState().name(), 1);
-		}else{
-			mapAct.put(activityEvent.getActivityState().name(), value + 1);
-		}
-		activityCounterMap.put(key, mapAct);
-		
-	}
 
 	private List<String> getActivityStateCounterList(ActivityAuditEvent event) {
 		List<String> stateList = new ArrayList<>();
@@ -152,15 +147,28 @@ public class ActivityStatsEventCollector implements EventHandler {
 		return stateList;
 	}
 
+	private void updateTotalAcitivtyDurationCounter(ActivityStats activityStats2) {		
+		activityDurationCounter.labels(activityStats2.getProcessName(),activityStats2.getActivityName()).inc(activityStats2.getActivityDurationTime());
+		activityEvaltimeCounter.labels(activityStats2.getProcessName(),activityStats2.getActivityName()).inc(activityStats2.getActivityEvalTime());
+	}
+
 	private void updateTotalActivityEventCounter(String name) {
 		if(activityStateCounterMap.containsKey(name)){
 			activityStateCounterMap.put(name, activityStateCounterMap.get(name) + 1);
 		}
 	}
 
+	private void updateActivityCounter(ActivityAuditEvent activityEvent) {
+		activityStatsTotalCounter.labels(activityEvent.getProcessName(),activityEvent.getActivityName(),activityEvent.getActivityState().name()).inc();
+	}
+
+
+
+
+
 	private void addStatsToMetrics(final Map<String, Object> pStatMap,
 			final ActivityAuditEvent event) {
-		
+		ActivityStats activityStats = new ActivityStats();
 		activityStats.setApplicationName(event.getApplicationName());
 		activityStats.setApplicationVersion(event.getApplicationVersion());
 		activityStats.setModuleName(event.getModuleName());
@@ -195,56 +203,15 @@ public class ActivityStatsEventCollector implements EventHandler {
 		activityStats.setAppspaceName(System.getProperty(BW_APPSPACE_PROPERTY));
 		activityStats.setDomainName(System.getProperty(BW_DOMAIN_PROPERTY));
 		activityStats.setActivityExecutionId(event.getActivityExecutionId());
-		
-		//Add Activity in Metrics
+
+		// Add Activity in Metrics
 		if(config.isActivityDetailedEnabled()){
 			activitySampleList.add(new Sample("activity_stats_total", ActivityStats.getActivityStatsKeyList(), activityStats.getActivityStatsValueList(), 1));
 			activityCounterSampleList.add(new Sample("activity_duration_count",ActivityStats.getActivityCounterKeyList(), activityStats.getActivityCounterValueList(), activityStats.getActivityDurationTime()));
 			activityCounterSampleList.add(new Sample("activity_evaltime_count",ActivityStats.getActivityCounterKeyList(), activityStats.getActivityCounterValueList(), activityStats.getActivityEvalTime()));
 		}
-	}
 	
-	public static List<MetricFamilySamples> getCollection() {
-		
-		List<Sample> copyActivitySampleList = new ArrayList<>();
-		copyActivitySampleList.addAll(activitySampleList);
-		MetricFamilySamples activityMFS = new MetricFamilySamples("bwce_activity_stats_list", 
-				Type.GAUGE, "BWCE Activity Statictics list",copyActivitySampleList);
-		
-		
-		List<Sample> copyActivityCounterSampleList = new ArrayList<>();
-		copyActivityCounterSampleList.addAll(activityCounterSampleList);
-		MetricFamilySamples activityCountersMFS = new MetricFamilySamples("bwce_activity_counter_list", 
-				Type.GAUGE, "BWCE Activity related Counters list",copyActivityCounterSampleList);
-	
-		CounterMetricFamily allActivityEventCounter = new CounterMetricFamily("all_activity_events_count", "BWCE All Activity Events count by State",Arrays.asList("StateName"));
-		allActivityEventCounter.addMetric(Arrays.asList(State.CANCELLED.name()), activityStateCounterMap.get(State.CANCELLED.name()));
-		allActivityEventCounter.addMetric(Arrays.asList(State.COMPLETED.name()), activityStateCounterMap.get(State.COMPLETED.name()));
-		allActivityEventCounter.addMetric(Arrays.asList(State.STARTED.name()), activityStateCounterMap.get(State.STARTED.name()));
-		allActivityEventCounter.addMetric(Arrays.asList(State.FAULTED.name()), activityStateCounterMap.get(State.FAULTED.name()));
-		
-		CounterMetricFamily activityEventCounter = new CounterMetricFamily("activity_events_count", "BWCE All Activity Events count by Process, Activity State",Arrays.asList("ProcessName","ActivityName","StateName"));
-		for(String entry : activityCounterMap.keySet()){
-			for(String state : activityCounterMap.get(entry).keySet()){
-				String[] keyParts = entry.split("#");
-				if(keyParts.length > 1){
-					activityEventCounter.addMetric(Arrays.asList(keyParts[0],keyParts[1],state), activityCounterMap.get(entry).get(state));
-				}
-			}
-		}
-		
-		
-		List<MetricFamilySamples> mfs = new ArrayList<>();
-		mfs.add(activityMFS);
-		mfs.add(activityCountersMFS);
-		mfs.add(allActivityEventCounter);
-		mfs.add(activityEventCounter);
-		return mfs;
-	}
-	
-	public static void reset(){
-		activityCounterSampleList.clear();
-		activitySampleList.clear();
+		updateTotalAcitivtyDurationCounter(activityStats);
 	}
 
 }

@@ -2,10 +2,6 @@
 
 package com.tibco.bw.prometheus.monitor;
 
-import io.prometheus.client.Collector;
-import io.prometheus.client.exporter.HTTPServer;
-
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,13 +14,13 @@ import org.osgi.util.tracker.ServiceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.tibco.bw.prometheus.monitor.stats.ActivityStatsEventCollector;
-import com.tibco.bw.prometheus.monitor.stats.ProcessInstanceStatsEventCollector;
 import com.tibco.bw.prometheus.monitor.util.Utils;
 import com.tibco.bw.sharedresource.http.inbound.api.HttpConnector;
 import com.tibco.bw.sharedresource.http.inbound.api.HttpServletApplicationModel;
 import com.tibco.bw.sharedresource.runtime.ResourceReference;
 import com.tibco.neo.exception.BaseException;
+
+import io.prometheus.client.Collector;
 
 public class PrometheusCollector extends Collector {
 	private static Logger logger = LoggerFactory.getLogger(PrometheusCollector.class);
@@ -55,10 +51,6 @@ public class PrometheusCollector extends Collector {
 	@Override
 	public List<MetricFamilySamples> collect() {	
 		List<MetricFamilySamples> mfs = new ArrayList<Collector.MetricFamilySamples>();
-		mfs.addAll(ActivityStatsEventCollector.getCollection());
-		mfs.addAll(ProcessInstanceStatsEventCollector.getCollection());
-		ActivityStatsEventCollector.reset();
-		ProcessInstanceStatsEventCollector.reset();
 		return mfs;
 	}
 	
@@ -76,7 +68,7 @@ public class PrometheusCollector extends Collector {
 						HttpConnector connector = (HttpConnector) reference.getResource();
 						if (connector != null) {
 							HashMap<String, String> initParams = new HashMap<>();
-							initParams.put(ProxyServlet.P_TARGET_URI, "http://localhost:9095/metrics");
+							initParams.put(ProxyServlet.P_TARGET_URI, "http://localhost:"+ConfigurationManager.getInstance().getPrometheusPort()+"/metrics");
 							HttpServletApplicationModel model = new HttpServletApplicationModel("/metrics", "/*", APPLICATION_NAME, initParams, new ProxyServlet(proxyInitLatch));
 							connector.deployServletApplication(model);
 							logger.info("Prometheus : Proxy server created in PCF");

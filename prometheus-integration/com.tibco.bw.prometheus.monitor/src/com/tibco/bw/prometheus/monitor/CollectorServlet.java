@@ -1,6 +1,5 @@
 package com.tibco.bw.prometheus.monitor;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.Writer;
 
@@ -32,7 +31,6 @@ public class CollectorServlet extends HttpServlet{
 
 	@Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
-		   final ByteArrayOutputStream stream = new ByteArrayOutputStream(); 
 		   response.setStatus(HttpServletResponse.SC_OK);
 		   response.setContentType(TextFormat.CONTENT_TYPE_004);
 		   Writer writer = response.getWriter();
