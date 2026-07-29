@@ -12,7 +12,7 @@ RUN apt-get install -y libpq-dev
 RUN apt-get install -y freetds-dev
 RUN gem -v
 RUN ruby -v
-RUN ["gem", "install", "fluent-plugin-sql", "--no-document"]
-RUN ["gem", "install", "tiny_tds"]
-RUN ["gem", "install", "activerecord-sqlserver-adapter"]
+RUN ["gem", "install", "fluent-plugin-sql", "--no-document", "-v", "2.3.0"]
+RUN ["gem", "install", "tiny_tds", "-v", "2.1.5"]
+RUN ["gem", "install", "activerecord-sqlserver-adapter", "-v", "6.1.2.1"]
 COPY config /fluentd/etc
