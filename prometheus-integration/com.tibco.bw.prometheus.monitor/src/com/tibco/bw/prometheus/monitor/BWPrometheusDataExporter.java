@@ -1,8 +1,8 @@
 package com.tibco.bw.prometheus.monitor;
 
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee11.servlet.ServletHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,6 +64,9 @@ public class BWPrometheusDataExporter {
 	}
 	
 	static void shutdownServer() {
+		if (server == null) {
+			return;
+		}
 		try {
 			server.stop();
 		} catch (Exception e) {
