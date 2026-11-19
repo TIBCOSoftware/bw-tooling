@@ -4,18 +4,14 @@ Bundle-Name: Prometheus Monitoring for BW application
 Bundle-SymbolicName: com.tibco.bw.prometheus.monitor
 Bundle-Version: 1.0.0.qualifier
 Bundle-ClassPath: .,
- lib/jetty-server-12.0.5.jar,
  lib/simpleclient_common-0.16.0.jar,
  lib/simpleclient_hotspot-0.16.0.jar,
  lib/simpleclient_httpserver-0.16.0.jar,
- lib/simpleclient_jetty-0.16.0.jar,
- lib/simpleclient_servlet-0.16.0.jar,
- lib/simpleclient-0.16.0.jar,
- lib/simpleclient_servlet_common-0.16.0.jar
+ lib/simpleclient-0.16.0.jar
 Bundle-Activator: com.tibco.bw.prometheus.monitor.Activator
 Bundle-Vendor: TIBCO Software Inc.
 Require-Bundle: com.tibco.bw.thor.management.common
-Bundle-RequiredExecutionEnvironment: JavaSE-1.7
+Bundle-RequiredExecutionEnvironment: JavaSE-17
 Bundle-ActivationPolicy: lazy
 Import-Package: .;version="1.0.200",
  com.tibco.bw.frwk.api;version="[1.0.0,2.0.0)",
@@ -32,8 +28,8 @@ Import-Package: .;version="1.0.200",
  io.micrometer.core.instrument.binder.jvm,
  io.micrometer.core.instrument.binder.system,
  io.micrometer.prometheus,
- javax.servlet;version="2.10.0",
- javax.servlet.http;version="2.10.0",
+ jakarta.servlet;version="[6.0.0,7.0.0)",
+ jakarta.servlet.http;version="[6.0.0,7.0.0)",
  org.apache.http;version="4.10.0",
  org.apache.http.client;version="4.10.0",
  org.apache.http.client.config;version="4.10.0",
@@ -46,9 +42,9 @@ Import-Package: .;version="1.0.200",
  org.apache.http.impl.client;version="4.10.0",
  org.apache.http.message;version="4.10.0",
  org.apache.http.util;version="4.10.0",
- org.eclipse.jetty.server;version="[9.0.0,9.9.0)",
- org.eclipse.jetty.servlet;version="[9.0.0,9.9.0)",
- org.eclipse.jetty.util.component;version="[9.0.0,9.9.0)",
+ org.eclipse.jetty.ee11.servlet;version="[12.0.0,13.0.0)",
+ org.eclipse.jetty.server;version="[12.0.0,13.0.0)",
+ org.eclipse.jetty.util.component;version="[12.0.0,13.0.0)",
  org.osgi.framework;version="[1.3.0,2.0.0)",
  org.osgi.service.event;version="[1.3.0,2.0.0)",
  org.osgi.util.tracker;version="1.5.1",

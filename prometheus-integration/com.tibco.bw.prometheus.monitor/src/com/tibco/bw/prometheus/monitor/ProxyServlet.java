@@ -27,11 +27,11 @@ import java.util.Formatter;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -224,7 +224,7 @@ public class ProxyServlet extends HttpServlet {
 	}
 
 	/**
-	 * Called from {@link #init(javax.servlet.ServletConfig)}. HttpClient offers
+	 * Called from {@link #init(jakarta.servlet.ServletConfig)}. HttpClient offers
 	 * many opportunities for customization. In any case, it should be
 	 * thread-safe.
 	 **/
@@ -308,8 +308,7 @@ public class ProxyServlet extends HttpServlet {
 			// only way to pass the reason along too.
 			int statusCode = proxyResponse.getStatusLine().getStatusCode();
 			// noinspection deprecation
-			servletResponse.setStatus(statusCode, proxyResponse.getStatusLine()
-					.getReasonPhrase());
+			servletResponse.setStatus(statusCode);
 
 			// Copying response headers to make sure SESSIONID or other Cookie
 			// which comes from the remote
@@ -554,12 +553,10 @@ public class ProxyServlet extends HttpServlet {
 					: getCookieNamePrefix(cookie.getName()) + cookie.getName();
 			Cookie servletCookie = new Cookie(proxyCookieName,
 					cookie.getValue());
-			servletCookie.setComment(cookie.getComment());
 			servletCookie.setMaxAge((int) cookie.getMaxAge());
 			servletCookie.setPath(path); // set to the path of the proxy servlet
 			// don't set cookie domain
 			servletCookie.setSecure(cookie.getSecure());
-			servletCookie.setVersion(cookie.getVersion());
 			servletResponse.addCookie(servletCookie);
 		}
 	}
