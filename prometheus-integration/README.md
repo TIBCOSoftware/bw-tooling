@@ -4,7 +4,8 @@ Prometheus Monitoring for TIBCO BusinessWorks is an open source plug-in for TIBC
 
 ## Version
 * For TIBCO BusinessWorks Container Edition 2.9.0 and prior versions, use the prometheus-integration plugin from branch [2.3.2](https://github.com/TIBCOSoftware/bw-tooling/tree/2.9.0).
-* For TIBCO BusinessWorks Container Edition 2.9.1 and later versions, use the prometheus-integration plugin from branch [master](https://github.com/TIBCOSoftware/bw-tooling/tree/master).
+*  For TIBCO BusinessWorks Container Edition 6.12.0 and and prior versions up to 2.9.0, use the prometheus-integration plugin from branch [6.12.0](https://github.com/TIBCOSoftware/bw-tooling/tree/6.12.0).
+* For TIBCO BusinessWorks Container Edition 6.12.1 and later versions, use the prometheus-integration plugin from branch [master](https://github.com/TIBCOSoftware/bw-tooling/tree/master).
 
 ## Prometheus for Docker
 
